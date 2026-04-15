@@ -78,19 +78,31 @@ spark.sql(f"""
         line_total
     FROM (
         SELECT
-            c.id AS cart_id,
-            c.userId AS user_id,
-            CURRENT_DATE() AS order_date,
-            item.id AS product_id,
-            item.title AS product_title,
+            e.cart_id,
+            e.user_id,
+            e.order_date,
+            e.product_id,
+            e.product_title,
             p.category AS category,
-            CAST(item.price AS DOUBLE) AS price,
-            item.quantity AS quantity,
-            ROUND(CAST(item.total AS DOUBLE), 2) AS line_total,
-            ROW_NUMBER() OVER (PARTITION BY c.id, item.id ORDER BY c._ingestion_timestamp DESC) AS rn
-        FROM {BRONZE_SCHEMA}.carts c
-        LATERAL VIEW EXPLODE(c.products) AS item
-        LEFT JOIN {SILVER_SCHEMA}.products p ON item.id = p.product_id
+            e.price,
+            e.quantity,
+            e.line_total,
+            ROW_NUMBER() OVER (PARTITION BY e.cart_id, e.product_id ORDER BY e.ingestion_ts DESC) AS rn
+        FROM (
+            SELECT
+                c.id AS cart_id,
+                c.userId AS user_id,
+                CURRENT_DATE() AS order_date,
+                item.id AS product_id,
+                item.title AS product_title,
+                CAST(item.price AS DOUBLE) AS price,
+                item.quantity AS quantity,
+                ROUND(CAST(item.total AS DOUBLE), 2) AS line_total,
+                c._ingestion_timestamp AS ingestion_ts
+            FROM {BRONZE_SCHEMA}.carts c
+            LATERAL VIEW EXPLODE(c.products) AS item
+        ) e
+        LEFT JOIN {SILVER_SCHEMA}.products p ON e.product_id = p.product_id
     )
     WHERE rn = 1
 """)
