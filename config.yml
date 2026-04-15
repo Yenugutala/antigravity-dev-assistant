@@ -1,0 +1,35 @@
+# AI Pipeline Accelerator — Configuration
+# This file is read by all pipeline code. No hardcoded values in code.
+
+environment: "trial"          # community, trial, or prod
+
+# Databricks database (Community Edition uses "default")
+database: "default"
+storage_root: "dbfs:/FileStore"
+
+# Source API
+source_api: "https://fakestoreapi.com"
+
+# Table names — Bronze layer
+tables:
+  bronze:
+    products: "default.products_bronze"
+    carts: "default.carts_bronze"
+    users: "default.users_bronze"
+
+  # Table names — Silver layer
+  silver:
+    products: "default.products_silver"
+    orders: "default.orders_silver"
+    customers: "default.customers_silver"
+    quarantine: "default.orders_quarantine"
+
+  # Table names — Gold layer
+  gold:
+    revenue_by_category: "default.revenue_by_category"
+    order_summary: "default.order_summary"
+
+# Data quality thresholds
+data_quality:
+  max_null_rate: 0.01           # Max 1% nulls on required columns
+  max_quarantine_rate: 0.05     # Alert if >5% records quarantined
