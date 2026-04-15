@@ -2,7 +2,7 @@
 name: build-pipeline
 description: >
   Master orchestrator skill that reads pipeline specification files and automatically
-  generates all artifacts: HLD document, LLD document, Bronze PySpark code, Silver Spark SQL code,
+  generates all artifacts: HLD document, Bronze PySpark code, Silver Spark SQL code,
   Gold Spark SQL code, unit tests, and a Databricks run notebook.
   Invoke with "build pipeline", "generate pipeline", or when the user provides a spec file path.
 ---
@@ -34,16 +34,7 @@ Create `docs/<domain>-<entity>-hld.md` with:
 - Technology Stack: Databricks, Delta Lake, PySpark, Spark SQL
 - Table Structure using schema naming: `b_<pipeline>.<table>`, `s_<pipeline>.<table>`, `g_<pipeline>.<table>`
 
-### Step 3: Generate LLD Document
-Create `docs/<domain>-<entity>-lld.md` with:
-- Complete schema definitions for each layer (Bronze, Silver, Gold)
-- Column-by-column mapping from Bronze → Silver
-- Transformation logic pseudocode
-- Deduplication logic with SQL examples
-- Aggregation definitions with SQL examples
-- Error handling and quarantine table design
-
-### Step 4: Generate Bronze Pipeline Code (PySpark)
+### Step 3: Generate Bronze Pipeline Code (PySpark)
 Create `src/pipelines/<domain>/<entity>/bronze_ingest.py`:
 - MUST start with `# Databricks notebook source`
 - MUST begin with `CREATE SCHEMA IF NOT EXISTS b_<pipeline>`
@@ -55,7 +46,7 @@ Create `src/pipelines/<domain>/<entity>/bronze_ingest.py`:
 - Write as Delta table: `b_<pipeline>.<table>` (e.g., `b_salesorders.products`)
 - Display sample data at the end
 
-### Step 5: Generate Silver Pipeline Code (Spark SQL)
+### Step 4: Generate Silver Pipeline Code (Spark SQL)
 Create `src/pipelines/<domain>/<entity>/silver_cleanse.py`:
 - MUST start with `# Databricks notebook source`
 - MUST begin with `CREATE SCHEMA IF NOT EXISTS s_<pipeline>`
@@ -66,7 +57,7 @@ Create `src/pipelines/<domain>/<entity>/silver_cleanse.py`:
 - Quarantine invalid records to `s_<pipeline>.orders_quarantine`
 - Write cleansed data to `s_<pipeline>.<table>`
 
-### Step 6: Generate Gold Pipeline Code (Spark SQL)
+### Step 5: Generate Gold Pipeline Code (Spark SQL)
 Create `src/pipelines/<domain>/<entity>/gold_aggregate.py`:
 - MUST start with `# Databricks notebook source`
 - MUST begin with `CREATE SCHEMA IF NOT EXISTS g_<pipeline>`
@@ -75,14 +66,14 @@ Create `src/pipelines/<domain>/<entity>/gold_aggregate.py`:
 - Read from `s_<pipeline>.<table>`, write to `g_<pipeline>.<table>`
 - Display final aggregated results at the end
 
-### Step 7: Generate Master Notebook
+### Step 6: Generate Master Notebook
 Create `notebooks/run_pipeline.py`:
 - MUST start with `# Databricks notebook source`
 - Run Bronze, Silver, Gold notebooks in sequence using `%run` magic commands
 - Display summary with schema-qualified table names and row counts
 - Include timing for each stage
 
-### Step 8: Generate Unit Tests
+### Step 7: Generate Unit Tests
 Create `tests/test_bronze.py`, `tests/test_silver.py`, `tests/test_gold.py`:
 - Use pytest
 - Test transformation functions in isolation
@@ -91,7 +82,7 @@ Create `tests/test_bronze.py`, `tests/test_silver.py`, `tests/test_gold.py`:
 - DO NOT add `# Databricks notebook source` header to test files
 - Gold test `test_beauty_revenue` should use expected value `100.00` (intentional demo failure — actual is `99.93`)
 
-### Step 9: Print Summary
+### Step 8: Print Summary
 After generating all files, print:
 - List of all generated files
 - How to run tests: `pytest tests/ -v`
