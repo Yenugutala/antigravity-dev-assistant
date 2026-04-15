@@ -38,3 +38,6 @@ htmlcov/
 
 # Local metadata
 local/
+
+# Demo files (local only, not published to repo)
+demo/
