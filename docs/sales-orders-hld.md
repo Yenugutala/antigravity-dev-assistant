@@ -1,18 +1,19 @@
 # High-Level Design: Sales Orders Pipeline
 
 ## 1. Solution Overview
-This pipeline ingests product catalog, shopping cart (orders), and customer data from the FakeStore REST API, processes it through a Databricks Medallion Architecture (Bronze → Silver → Gold), and produces business-ready analytics tables for revenue analysis by product category and daily order summaries.
+This pipeline ingests product catalog, shopping cart (orders), and customer data from the DummyJSON REST API, processes it through a Databricks Medallion Architecture (Bronze → Silver → Gold), and produces business-ready analytics tables for revenue analysis by product category and daily order summaries.
 
 ## 2. Architecture
 
 ```
 ┌─────────────────┐     ┌──────────────────┐     ┌──────────────────┐     ┌──────────────────┐
-│   FakeStore     │     │     BRONZE       │     │     SILVER       │     │      GOLD        │
+│   DummyJSON     │     │     BRONZE       │     │     SILVER       │     │      GOLD        │
 │   REST API      │────▶│   (PySpark)      │────▶│   (Spark SQL)    │────▶│   (Spark SQL)    │
 │                 │     │                  │     │                  │     │                  │
-│ /products       │     │ products_bronze  │     │ products_silver  │     │ revenue_by_      │
-│ /carts          │     │ carts_bronze     │     │ orders_silver    │     │   category       │
-│ /users          │     │ users_bronze     │     │ customers_silver │     │ order_summary    │
+│ /products       │     │ b_salesorders.   │     │ s_salesorders.   │     │ g_salesorders.   │
+│ /carts          │     │   products       │     │   products       │     │   revenue_by_    │
+│ /users          │     │   carts          │     │   orders         │     │     category     │
+│                 │     │   users          │     │   customers      │     │   order_summary  │
 └─────────────────┘     └──────────────────┘     └──────────────────┘     └──────────────────┘
                           Raw JSON → Delta         Cleansed, Flattened      Aggregated Metrics
                           + metadata columns       + deduplicated           + business KPIs
@@ -35,56 +36,45 @@ This pipeline ingests product catalog, shopping cart (orders), and customer data
 
 ### Bronze Layer (Raw Ingestion)
 - **Input**: 3 REST API endpoints (products, carts, users)
-- **Process**: HTTP GET → JSON → Spark DataFrame → Add metadata columns
-- **Output**: 3 Delta tables (`products_bronze`, `carts_bronze`, `users_bronze`)
+- **Process**: HTTP GET → JSON → Clean & Type-Cast → Explicit Schema → Spark DataFrame → Delta
+- **Output**: 3 Delta tables in `b_salesorders` schema
 - **Metadata**: `_ingestion_timestamp`, `_source`, `_batch_id`
+- **Fallback**: Embedded sample data if API is unreachable
 
 ### Silver Layer (Cleansing & Conformance)
-- **Input**: 3 Bronze Delta tables
+- **Input**: 3 Bronze Delta tables from `b_salesorders`
 - **Process**:
-  - Flatten nested structs (rating, name, address)
-  - Explode cart products array into order line items
-  - Join orders with products to get prices/categories
-  - Deduplicate by primary key (keep latest)
-  - Quarantine invalid records (null IDs, negative prices)
-- **Output**: 3 Silver tables + 1 quarantine table
+  - Cleanse products: TRIM, LOWER, CAST
+  - Explode cart products array into order line items (LATERAL VIEW EXPLODE)
+  - Join orders with products for category/price enrichment
+  - Deduplicate by primary key (ROW_NUMBER, keep latest)
+  - Quarantine invalid records (null IDs)
+- **Output**: 3 Silver tables + 1 quarantine table in `s_salesorders` schema
 
 ### Gold Layer (Business Aggregations)
-- **Input**: Silver tables
+- **Input**: Silver tables from `s_salesorders`
 - **Process**:
-  - Revenue by category: SUM(price * quantity), COUNT orders, AVG price
+  - Revenue by category: SUM(line_total), COUNT orders, AVG price
   - Order summary: daily orders, unique customers, total revenue
-- **Output**: 2 Gold tables (`revenue_by_category`, `order_summary`)
+- **Output**: 2 Gold tables in `g_salesorders` schema
 
 ## 5. Table Structure
 
-| Layer | Table Name | Description |
-|---|---|---|
-| Bronze | `default.products_bronze` | Raw product catalog from API |
-| Bronze | `default.carts_bronze` | Raw shopping cart/order data |
-| Bronze | `default.users_bronze` | Raw customer data |
-| Silver | `default.products_silver` | Cleansed products with flattened rating |
-| Silver | `default.orders_silver` | Flattened order line items with product details |
-| Silver | `default.customers_silver` | Cleansed customers with flattened name/address |
-| Silver | `default.orders_quarantine` | Invalid records rejected during cleansing |
-| Gold | `default.revenue_by_category` | Revenue, order count, avg price per category |
-| Gold | `default.order_summary` | Daily order count, unique customers, revenue |
+| Layer | Schema | Table Name | Description |
+|---|---|---|---|
+| Bronze | `b_salesorders` | `products` | Raw product catalog from API |
+| Bronze | `b_salesorders` | `carts` | Raw shopping cart/order data |
+| Bronze | `b_salesorders` | `users` | Raw customer data |
+| Silver | `s_salesorders` | `products` | Cleansed products with rating |
+| Silver | `s_salesorders` | `orders` | Flattened order line items with product details |
+| Silver | `s_salesorders` | `customers` | Cleansed customers with flattened address |
+| Silver | `s_salesorders` | `orders_quarantine` | Invalid records rejected during cleansing |
+| Gold | `g_salesorders` | `revenue_by_category` | Revenue, order count, avg price per category |
+| Gold | `g_salesorders` | `order_summary` | Daily order count, unique customers, revenue |
 
-## 6. Data Quality Strategy
-
-| Layer | Check | Action |
-|---|---|---|
-| Bronze | Row count > 0 | Fail pipeline if API returns empty |
-| Bronze | No null IDs | Log warning |
-| Silver | Unique primary keys | Deduplicate (keep latest) |
-| Silver | No negative prices | Quarantine record |
-| Silver | No null required fields | Quarantine record |
-| Gold | Revenue >= 0 | Log warning |
-| Gold | Order count > 0 | Fail if no data |
-
-## 7. Monitoring
+## 6. Monitoring
 
 - Pipeline execution time logged per stage (Bronze, Silver, Gold)
 - Row counts logged per table after each write
-- Quarantine table row count checked — alert if > 5% of input
+- Quarantine table row count checked for anomalies
 - All outputs displayed in notebook for visual verification

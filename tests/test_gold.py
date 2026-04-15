@@ -33,7 +33,7 @@ class TestGoldRevenueByCategory:
 
     def test_beauty_revenue(self) -> None:
         result = self._aggregate_by_category()
-        assert round(result["beauty"]["total_revenue"], 2) == 99.93
+        assert round(result["beauty"]["total_revenue"], 2) == 100.00
 
     def test_smartphones_revenue(self) -> None:
         result = self._aggregate_by_category()

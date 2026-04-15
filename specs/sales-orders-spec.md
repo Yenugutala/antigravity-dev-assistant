@@ -1,4 +1,5 @@
 ---
+# DEPRECATED: Superseded by bronze-spec.md, silver-spec.md, gold-spec.md
 # PIPELINE SPECIFICATION: Sales Orders Pipeline
 # Source: DummyJSON API (https://dummyjson.com)
 # Medallion: Bronze (PySpark) → Silver (Spark SQL) → Gold (Spark SQL)

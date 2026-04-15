@@ -4,9 +4,9 @@
 
 # MAGIC %md
 # MAGIC # Sales Orders Pipeline — Full Run
-# MAGIC **Spec**: specs/sales-orders-spec.md
+# MAGIC **Specs**: specs/bronze-spec.md, specs/silver-spec.md, specs/gold-spec.md
 # MAGIC **Architecture**: Bronze (PySpark) → Silver (Spark SQL) → Gold (Spark SQL)
-# MAGIC **Source**: FakeStore API (https://fakestoreapi.com)
+# MAGIC **Source**: DummyJSON API (https://dummyjson.com)
 
 # COMMAND ----------
 
@@ -87,11 +87,14 @@ print(f"  Gold:   {gold_time}s")
 print(f"  Total:  {bronze_time + silver_time + gold_time}s")
 print()
 print("  Tables Created:")
-for table in ["products_bronze", "carts_bronze", "users_bronze",
-              "products_silver", "orders_silver", "customers_silver",
-              "orders_quarantine", "revenue_by_category", "order_summary"]:
-    count = spark.sql(f"SELECT COUNT(*) as cnt FROM default.{table}").collect()[0]["cnt"]
-    print(f"    default.{table}: {count} rows")
+for schema, tables in [
+    ("b_salesorders", ["products", "carts", "users"]),
+    ("s_salesorders", ["products", "orders", "customers", "orders_quarantine"]),
+    ("g_salesorders", ["revenue_by_category", "order_summary"]),
+]:
+    for table in tables:
+        count = spark.sql(f"SELECT COUNT(*) as cnt FROM {schema}.{table}").collect()[0]["cnt"]
+        print(f"    {schema}.{table}: {count} rows")
 
 # COMMAND ----------
 
@@ -100,7 +103,7 @@ for table in ["products_bronze", "carts_bronze", "users_bronze",
 
 # COMMAND ----------
 
-display(spark.sql("SELECT * FROM default.revenue_by_category ORDER BY total_revenue DESC"))
+display(spark.sql("SELECT * FROM g_salesorders.revenue_by_category ORDER BY total_revenue DESC"))
 
 # COMMAND ----------
 
@@ -109,4 +112,4 @@ display(spark.sql("SELECT * FROM default.revenue_by_category ORDER BY total_reve
 
 # COMMAND ----------
 
-display(spark.sql("SELECT * FROM default.order_summary ORDER BY order_date"))
+display(spark.sql("SELECT * FROM g_salesorders.order_summary ORDER BY order_date"))
