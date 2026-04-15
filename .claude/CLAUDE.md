@@ -15,8 +15,13 @@ User writes a spec → runs `/build-pipeline` → all code, tests, docs, and not
 - All pipeline code must be idempotent and re-runnable
 - No hardcoded values — use config.yml for all configuration
 - No secrets in code — use Databricks Secrets or environment variables
-- Tables use naming: `default.<entity>_<layer>` (e.g., `default.orders_bronze`)
+- Three schemas per pipeline: `b_<pipeline>` (Bronze), `s_<pipeline>` (Silver), `g_<pipeline>` (Gold)
+- Table naming: `<schema>.<table>` (e.g., `b_salesorders.products`, `s_salesorders.orders`, `g_salesorders.revenue_by_category`)
+- Each pipeline notebook MUST start with `CREATE SCHEMA IF NOT EXISTS <schema_name>`
 - Metadata columns prefixed with `_` (e.g., `_ingestion_timestamp`, `_source`)
+- Always use explicit Spark `StructType` schemas — never rely on schema inference
+- Always embed fallback sample data for API sources
+- Preprocess API data: strip unnecessary fields, cast all numerics to consistent types
 
 ## Code Style
 - Python: snake_case for files and functions
@@ -27,3 +32,8 @@ User writes a spec → runs `/build-pipeline` → all code, tests, docs, and not
 ## Testing
 - pytest for all tests
 - Tests must be runnable locally (no Databricks cluster needed for unit tests)
+
+## Demo Flow
+- BRD at `docs/business-requirement.md` describes business need (no technical details)
+- Three separate specs: `specs/bronze-spec.md`, `specs/silver-spec.md`, `specs/gold-spec.md`
+- Code generation regenerates from specs; code MUST work first time

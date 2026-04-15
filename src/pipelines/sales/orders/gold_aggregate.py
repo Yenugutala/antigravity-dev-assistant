@@ -4,13 +4,15 @@
 
 # MAGIC %md
 # MAGIC # Gold Layer — Sales Orders Business Aggregations
-# MAGIC **Input**: orders_silver, customers_silver
-# MAGIC **Output**: revenue_by_category, order_summary
+# MAGIC **Input**: s_salesorders.orders, s_salesorders.customers
+# MAGIC **Output**: g_salesorders.revenue_by_category, g_salesorders.order_summary
 # MAGIC **Pattern**: Spark SQL (PySQL) — business-level aggregations
 
 # COMMAND ----------
 
 from datetime import datetime
+spark.sql("CREATE SCHEMA IF NOT EXISTS g_salesorders")
+print("Schema g_salesorders ready")
 print(f"Gold Aggregation Started: {datetime.now()}")
 
 # COMMAND ----------
@@ -21,7 +23,7 @@ print(f"Gold Aggregation Started: {datetime.now()}")
 # COMMAND ----------
 
 spark.sql("""
-    CREATE OR REPLACE TABLE default.revenue_by_category AS
+    CREATE OR REPLACE TABLE g_salesorders.revenue_by_category AS
     SELECT
         category,
         ROUND(SUM(line_total), 2) AS total_revenue,
@@ -29,12 +31,12 @@ spark.sql("""
         COUNT(DISTINCT cart_id) AS total_orders,
         ROUND(AVG(price), 2) AS avg_price,
         COUNT(DISTINCT product_id) AS unique_products
-    FROM default.orders_silver
+    FROM s_salesorders.orders
     GROUP BY category
     ORDER BY total_revenue DESC
 """)
 
-print("✓ default.revenue_by_category created")
+print("✓ g_salesorders.revenue_by_category created")
 
 # COMMAND ----------
 
@@ -43,7 +45,7 @@ print("✓ default.revenue_by_category created")
 
 # COMMAND ----------
 
-display(spark.sql("SELECT * FROM default.revenue_by_category"))
+display(spark.sql("SELECT * FROM g_salesorders.revenue_by_category"))
 
 # COMMAND ----------
 
@@ -53,7 +55,7 @@ display(spark.sql("SELECT * FROM default.revenue_by_category"))
 # COMMAND ----------
 
 spark.sql("""
-    CREATE OR REPLACE TABLE default.order_summary AS
+    CREATE OR REPLACE TABLE g_salesorders.order_summary AS
     SELECT
         order_date,
         COUNT(DISTINCT cart_id) AS total_orders,
@@ -61,12 +63,12 @@ spark.sql("""
         ROUND(SUM(line_total), 2) AS total_revenue,
         SUM(quantity) AS total_items,
         ROUND(AVG(line_total), 2) AS avg_order_line_value
-    FROM default.orders_silver
+    FROM s_salesorders.orders
     GROUP BY order_date
     ORDER BY order_date
 """)
 
-print("✓ default.order_summary created")
+print("✓ g_salesorders.order_summary created")
 
 # COMMAND ----------
 
@@ -75,7 +77,7 @@ print("✓ default.order_summary created")
 
 # COMMAND ----------
 
-display(spark.sql("SELECT * FROM default.order_summary"))
+display(spark.sql("SELECT * FROM g_salesorders.order_summary"))
 
 # COMMAND ----------
 
@@ -88,8 +90,8 @@ print("=" * 50)
 print("GOLD AGGREGATION COMPLETE")
 print("=" * 50)
 for table in ["revenue_by_category", "order_summary"]:
-    count = spark.sql(f"SELECT COUNT(*) as cnt FROM default.{table}").collect()[0]["cnt"]
-    print(f"  default.{table}: {count} rows")
+    count = spark.sql(f"SELECT COUNT(*) as cnt FROM g_salesorders.{table}").collect()[0]["cnt"]
+    print(f"  g_salesorders.{table}: {count} rows")
 
 # COMMAND ----------
 
@@ -106,7 +108,7 @@ display(spark.sql("""
         total_items_sold,
         total_orders,
         avg_price
-    FROM default.revenue_by_category
+    FROM g_salesorders.revenue_by_category
     ORDER BY total_revenue DESC
 """))
 
@@ -119,5 +121,5 @@ display(spark.sql("""
         SUM(total_orders) AS grand_total_orders,
         SUM(unique_customers) AS total_unique_customers,
         SUM(total_items) AS grand_total_items
-    FROM default.order_summary
+    FROM g_salesorders.order_summary
 """))

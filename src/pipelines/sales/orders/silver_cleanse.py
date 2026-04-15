@@ -4,13 +4,15 @@
 
 # MAGIC %md
 # MAGIC # Silver Layer — Sales Orders Cleansing & Conformance
-# MAGIC **Input**: products_bronze, carts_bronze, users_bronze
-# MAGIC **Output**: products_silver, orders_silver, customers_silver, orders_quarantine
+# MAGIC **Input**: b_salesorders.products, b_salesorders.carts, b_salesorders.users
+# MAGIC **Output**: s_salesorders.products, s_salesorders.orders, s_salesorders.customers
 # MAGIC **Pattern**: Spark SQL (PySQL) — cleanse, flatten, deduplicate, quarantine
 
 # COMMAND ----------
 
 from datetime import datetime
+spark.sql("CREATE SCHEMA IF NOT EXISTS s_salesorders")
+print("Schema s_salesorders ready")
 print(f"Silver Cleansing Started: {datetime.now()}")
 
 # COMMAND ----------
@@ -21,7 +23,7 @@ print(f"Silver Cleansing Started: {datetime.now()}")
 # COMMAND ----------
 
 spark.sql("""
-    CREATE OR REPLACE TABLE default.products_silver AS
+    CREATE OR REPLACE TABLE s_salesorders.products AS
     SELECT
         id AS product_id,
         TRIM(title) AS title,
@@ -30,17 +32,17 @@ spark.sql("""
         description,
         CAST(rating AS DOUBLE) AS rating_score,
         _ingestion_timestamp
-    FROM default.products_bronze
+    FROM b_salesorders.products
     WHERE id IS NOT NULL
       AND price >= 0
 """)
 
-products_count = spark.sql("SELECT COUNT(*) as cnt FROM default.products_silver").collect()[0]["cnt"]
-print(f"✓ default.products_silver: {products_count} rows")
+products_count = spark.sql("SELECT COUNT(*) as cnt FROM s_salesorders.products").collect()[0]["cnt"]
+print(f"✓ s_salesorders.products: {products_count} rows")
 
 # COMMAND ----------
 
-display(spark.sql("SELECT product_id, title, price, category, rating_score FROM default.products_silver LIMIT 5"))
+display(spark.sql("SELECT product_id, title, price, category, rating_score FROM s_salesorders.products LIMIT 5"))
 
 # COMMAND ----------
 
@@ -50,7 +52,7 @@ display(spark.sql("SELECT product_id, title, price, category, rating_score FROM 
 # COMMAND ----------
 
 spark.sql("""
-    CREATE OR REPLACE TABLE default.orders_silver AS
+    CREATE OR REPLACE TABLE s_salesorders.orders AS
     WITH exploded_carts AS (
         SELECT
             c.id AS cart_id,
@@ -60,7 +62,7 @@ spark.sql("""
             item.price AS item_price,
             item.total AS item_total,
             c._ingestion_timestamp
-        FROM default.carts_bronze c
+        FROM b_salesorders.carts c
         LATERAL VIEW EXPLODE(c.products) AS item
         WHERE c.id IS NOT NULL
     ),
@@ -77,7 +79,7 @@ spark.sql("""
             ROUND(COALESCE(ec.item_total, ec.item_price * ec.quantity, p.price * ec.quantity), 2) AS line_total,
             ec._ingestion_timestamp
         FROM exploded_carts ec
-        LEFT JOIN default.products_silver p ON ec.product_id = p.product_id
+        LEFT JOIN s_salesorders.products p ON ec.product_id = p.product_id
     ),
     ranked AS (
         SELECT *,
@@ -94,14 +96,14 @@ spark.sql("""
     WHERE rn = 1
 """)
 
-orders_count = spark.sql("SELECT COUNT(*) as cnt FROM default.orders_silver").collect()[0]["cnt"]
-print(f"✓ default.orders_silver: {orders_count} rows")
+orders_count = spark.sql("SELECT COUNT(*) as cnt FROM s_salesorders.orders").collect()[0]["cnt"]
+print(f"✓ s_salesorders.orders: {orders_count} rows")
 
 # COMMAND ----------
 
 display(spark.sql("""
     SELECT cart_id, user_id, order_date, product_title, category, price, quantity, line_total
-    FROM default.orders_silver
+    FROM s_salesorders.orders
     ORDER BY cart_id, product_id
     LIMIT 10
 """))
@@ -114,7 +116,7 @@ display(spark.sql("""
 # COMMAND ----------
 
 spark.sql("""
-    CREATE OR REPLACE TABLE default.customers_silver AS
+    CREATE OR REPLACE TABLE s_salesorders.customers AS
     WITH ranked AS (
         SELECT
             id AS customer_id,
@@ -128,7 +130,7 @@ spark.sql("""
             address.postalCode AS zipcode,
             _ingestion_timestamp,
             ROW_NUMBER() OVER (PARTITION BY id ORDER BY _ingestion_timestamp DESC) AS rn
-        FROM default.users_bronze
+        FROM b_salesorders.users
         WHERE id IS NOT NULL
     )
     SELECT
@@ -138,12 +140,12 @@ spark.sql("""
     WHERE rn = 1
 """)
 
-customers_count = spark.sql("SELECT COUNT(*) as cnt FROM default.customers_silver").collect()[0]["cnt"]
-print(f"✓ default.customers_silver: {customers_count} rows")
+customers_count = spark.sql("SELECT COUNT(*) as cnt FROM s_salesorders.customers").collect()[0]["cnt"]
+print(f"✓ s_salesorders.customers: {customers_count} rows")
 
 # COMMAND ----------
 
-display(spark.sql("SELECT customer_id, email, first_name, last_name, city FROM default.customers_silver LIMIT 5"))
+display(spark.sql("SELECT customer_id, email, first_name, last_name, city FROM s_salesorders.customers LIMIT 5"))
 
 # COMMAND ----------
 
@@ -153,14 +155,14 @@ display(spark.sql("SELECT customer_id, email, first_name, last_name, city FROM d
 # COMMAND ----------
 
 spark.sql("""
-    CREATE OR REPLACE TABLE default.orders_quarantine AS
+    CREATE OR REPLACE TABLE s_salesorders.orders_quarantine AS
     SELECT *, 'Missing cart ID' AS quarantine_reason
-    FROM default.carts_bronze
+    FROM b_salesorders.carts
     WHERE id IS NULL
 """)
 
-quarantine_count = spark.sql("SELECT COUNT(*) as cnt FROM default.orders_quarantine").collect()[0]["cnt"]
-print(f"✓ default.orders_quarantine: {quarantine_count} rows quarantined")
+quarantine_count = spark.sql("SELECT COUNT(*) as cnt FROM s_salesorders.orders_quarantine").collect()[0]["cnt"]
+print(f"✓ s_salesorders.orders_quarantine: {quarantine_count} rows quarantined")
 
 # COMMAND ----------
 
@@ -172,6 +174,6 @@ print(f"✓ default.orders_quarantine: {quarantine_count} rows quarantined")
 print("=" * 50)
 print("SILVER CLEANSING COMPLETE")
 print("=" * 50)
-for table in ["products_silver", "orders_silver", "customers_silver", "orders_quarantine"]:
-    count = spark.sql(f"SELECT COUNT(*) as cnt FROM default.{table}").collect()[0]["cnt"]
-    print(f"  default.{table}: {count} rows")
+for table in ["products", "orders", "customers", "orders_quarantine"]:
+    count = spark.sql(f"SELECT COUNT(*) as cnt FROM s_salesorders.{table}").collect()[0]["cnt"]
+    print(f"  s_salesorders.{table}: {count} rows")

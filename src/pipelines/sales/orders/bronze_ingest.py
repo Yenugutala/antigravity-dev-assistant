@@ -5,7 +5,7 @@
 # MAGIC %md
 # MAGIC # Bronze Layer — Sales Orders Ingestion
 # MAGIC **Source**: DummyJSON API (https://dummyjson.com)
-# MAGIC **Output**: products_bronze, carts_bronze, users_bronze (Delta tables)
+# MAGIC **Output**: b_salesorders.products, b_salesorders.carts, b_salesorders.users (Delta tables)
 # MAGIC **Pattern**: PySpark — API call → DataFrame → Delta table
 
 # COMMAND ----------
@@ -26,6 +26,8 @@ BATCH_ID = str(uuid.uuid4())
 SOURCE = "dummyjson"
 API_BASE = "https://dummyjson.com"
 
+spark.sql("CREATE SCHEMA IF NOT EXISTS b_salesorders")
+print("Schema b_salesorders ready")
 print(f"Bronze Ingestion Started")
 print(f"Batch ID: {BATCH_ID}")
 print(f"Timestamp: {datetime.now()}")
@@ -252,12 +254,12 @@ df_products = (df_products
     .withColumn("_batch_id", lit(BATCH_ID))
 )
 
-df_products.write.format("delta").mode("overwrite").saveAsTable("default.products_bronze")
-print("✓ default.products_bronze written")
+df_products.write.format("delta").mode("overwrite").saveAsTable("b_salesorders.products")
+print("✓ b_salesorders.products written")
 
 # COMMAND ----------
 
-display(spark.sql("SELECT id, title, price, category FROM default.products_bronze LIMIT 5"))
+display(spark.sql("SELECT id, title, price, category FROM b_salesorders.products LIMIT 5"))
 
 # COMMAND ----------
 
@@ -276,12 +278,12 @@ df_carts = (df_carts
     .withColumn("_batch_id", lit(BATCH_ID))
 )
 
-df_carts.write.format("delta").mode("overwrite").saveAsTable("default.carts_bronze")
-print("✓ default.carts_bronze written")
+df_carts.write.format("delta").mode("overwrite").saveAsTable("b_salesorders.carts")
+print("✓ b_salesorders.carts written")
 
 # COMMAND ----------
 
-display(spark.sql("SELECT id, userId, totalProducts, totalQuantity FROM default.carts_bronze LIMIT 5"))
+display(spark.sql("SELECT id, userId, totalProducts, totalQuantity FROM b_salesorders.carts LIMIT 5"))
 
 # COMMAND ----------
 
@@ -300,12 +302,12 @@ df_users = (df_users
     .withColumn("_batch_id", lit(BATCH_ID))
 )
 
-df_users.write.format("delta").mode("overwrite").saveAsTable("default.users_bronze")
-print("✓ default.users_bronze written")
+df_users.write.format("delta").mode("overwrite").saveAsTable("b_salesorders.users")
+print("✓ b_salesorders.users written")
 
 # COMMAND ----------
 
-display(spark.sql("SELECT id, email, username FROM default.users_bronze LIMIT 5"))
+display(spark.sql("SELECT id, email, username FROM b_salesorders.users LIMIT 5"))
 
 # COMMAND ----------
 
@@ -317,7 +319,7 @@ display(spark.sql("SELECT id, email, username FROM default.users_bronze LIMIT 5"
 print("=" * 50)
 print("BRONZE INGESTION COMPLETE")
 print("=" * 50)
-for table in ["products_bronze", "carts_bronze", "users_bronze"]:
-    count = spark.sql(f"SELECT COUNT(*) as cnt FROM default.{table}").collect()[0]["cnt"]
-    print(f"  default.{table}: {count} rows")
+for table in ["products", "carts", "users"]:
+    count = spark.sql(f"SELECT COUNT(*) as cnt FROM b_salesorders.{table}").collect()[0]["cnt"]
+    print(f"  b_salesorders.{table}: {count} rows")
 print(f"  Batch ID: {BATCH_ID}")

@@ -3,8 +3,12 @@
 
 environment: "trial"          # community, trial, or prod
 
-# Databricks database (Community Edition uses "default")
-database: "default"
+# Databricks schemas (databases)
+schemas:
+  bronze: "b_salesorders"
+  silver: "s_salesorders"
+  gold: "g_salesorders"
+
 storage_root: "dbfs:/FileStore"
 
 # Source API
@@ -13,23 +17,18 @@ source_api: "https://dummyjson.com"
 # Table names — Bronze layer
 tables:
   bronze:
-    products: "default.products_bronze"
-    carts: "default.carts_bronze"
-    users: "default.users_bronze"
+    products: "b_salesorders.products"
+    carts: "b_salesorders.carts"
+    users: "b_salesorders.users"
 
   # Table names — Silver layer
   silver:
-    products: "default.products_silver"
-    orders: "default.orders_silver"
-    customers: "default.customers_silver"
-    quarantine: "default.orders_quarantine"
+    products: "s_salesorders.products"
+    orders: "s_salesorders.orders"
+    customers: "s_salesorders.customers"
+    quarantine: "s_salesorders.orders_quarantine"
 
   # Table names — Gold layer
   gold:
-    revenue_by_category: "default.revenue_by_category"
-    order_summary: "default.order_summary"
-
-# Data quality thresholds
-data_quality:
-  max_null_rate: 0.01           # Max 1% nulls on required columns
-  max_quarantine_rate: 0.05     # Alert if >5% records quarantined
+    revenue_by_category: "g_salesorders.revenue_by_category"
+    order_summary: "g_salesorders.order_summary"
