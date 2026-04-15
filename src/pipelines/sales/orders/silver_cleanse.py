@@ -16,7 +16,7 @@ print(f"Silver Cleansing Started: {datetime.now()}")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## 1. Cleanse Products (Flatten rating struct)
+# MAGIC ## 1. Cleanse Products
 
 # COMMAND ----------
 
@@ -28,9 +28,7 @@ spark.sql("""
         CAST(price AS DOUBLE) AS price,
         TRIM(LOWER(category)) AS category,
         description,
-        image,
-        rating.rate AS rating_score,
-        rating.count AS rating_count,
+        CAST(rating AS DOUBLE) AS rating_score,
         _ingestion_timestamp
     FROM default.products_bronze
     WHERE id IS NOT NULL
@@ -57,9 +55,10 @@ spark.sql("""
         SELECT
             c.id AS cart_id,
             c.userId AS user_id,
-            CAST(c.date AS DATE) AS order_date,
-            item.productId AS product_id,
+            item.id AS product_id,
             item.quantity AS quantity,
+            item.price AS item_price,
+            item.total AS item_total,
             c._ingestion_timestamp
         FROM default.carts_bronze c
         LATERAL VIEW EXPLODE(c.products) AS item
@@ -69,16 +68,16 @@ spark.sql("""
         SELECT
             ec.cart_id,
             ec.user_id,
-            ec.order_date,
+            CURRENT_DATE() AS order_date,
             ec.product_id,
             p.title AS product_title,
             p.category,
-            p.price,
+            COALESCE(ec.item_price, p.price) AS price,
             ec.quantity,
-            ROUND(p.price * ec.quantity, 2) AS line_total,
+            ROUND(COALESCE(ec.item_total, ec.item_price * ec.quantity, p.price * ec.quantity), 2) AS line_total,
             ec._ingestion_timestamp
         FROM exploded_carts ec
-        JOIN default.products_silver p ON ec.product_id = p.product_id
+        LEFT JOIN default.products_silver p ON ec.product_id = p.product_id
     ),
     ranked AS (
         SELECT *,
@@ -110,7 +109,7 @@ display(spark.sql("""
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## 3. Cleanse Customers (Flatten name & address structs)
+# MAGIC ## 3. Cleanse Customers (Flatten address struct)
 
 # COMMAND ----------
 
@@ -121,12 +120,12 @@ spark.sql("""
             id AS customer_id,
             LOWER(TRIM(email)) AS email,
             LOWER(TRIM(username)) AS username,
-            name.firstname AS first_name,
-            name.lastname AS last_name,
+            firstName AS first_name,
+            lastName AS last_name,
             phone,
             address.city AS city,
-            address.street AS street,
-            address.zipcode AS zipcode,
+            address.address AS street,
+            address.postalCode AS zipcode,
             _ingestion_timestamp,
             ROW_NUMBER() OVER (PARTITION BY id ORDER BY _ingestion_timestamp DESC) AS rn
         FROM default.users_bronze

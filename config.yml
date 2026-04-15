@@ -8,7 +8,7 @@ database: "default"
 storage_root: "dbfs:/FileStore"
 
 # Source API
-source_api: "https://fakestoreapi.com"
+source_api: "https://dummyjson.com"
 
 # Table names — Bronze layer
 tables:

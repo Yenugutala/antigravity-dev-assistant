@@ -4,7 +4,7 @@
 
 # MAGIC %md
 # MAGIC # Bronze Layer — Sales Orders Ingestion
-# MAGIC **Source**: FakeStore API (https://fakestoreapi.com)
+# MAGIC **Source**: DummyJSON API (https://dummyjson.com)
 # MAGIC **Output**: products_bronze, carts_bronze, users_bronze (Delta tables)
 # MAGIC **Pattern**: PySpark — API call → DataFrame → Delta table
 
@@ -14,17 +14,13 @@ import requests
 import uuid
 from datetime import datetime
 from pyspark.sql.functions import current_timestamp, lit, col
-from pyspark.sql.types import (
-    StructType, StructField, StringType, IntegerType,
-    DoubleType, ArrayType
-)
 
 # COMMAND ----------
 
 # Configuration
 BATCH_ID = str(uuid.uuid4())
-SOURCE = "fakestoreapi"
-API_BASE = "https://fakestoreapi.com"
+SOURCE = "dummyjson"
+API_BASE = "https://dummyjson.com"
 
 print(f"Bronze Ingestion Started")
 print(f"Batch ID: {BATCH_ID}")
@@ -33,24 +29,104 @@ print(f"Timestamp: {datetime.now()}")
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC ## Helper — Fetch with Fallback
+
+# COMMAND ----------
+
+# Embedded fallback data — guarantees demo works even if API is down
+FALLBACK_PRODUCTS = [
+    {"id": 1, "title": "Essence Mascara Lash Princess", "price": 9.99, "category": "beauty", "rating": 2.56, "brand": "Essence", "description": "Popular volumizing mascara", "thumbnail": ""},
+    {"id": 2, "title": "Eyeshadow Palette with Mirror", "price": 19.99, "category": "beauty", "rating": 2.86, "brand": "Glamour Beauty", "description": "Versatile palette", "thumbnail": ""},
+    {"id": 3, "title": "Powder Canister", "price": 14.99, "category": "beauty", "rating": 4.64, "brand": "Velvet Touch", "description": "Fine setting powder", "thumbnail": ""},
+    {"id": 4, "title": "Red Lipstick", "price": 12.99, "category": "beauty", "rating": 4.36, "brand": "Chic Cosmetics", "description": "Classic red lipstick", "thumbnail": ""},
+    {"id": 5, "title": "Red Nail Polish", "price": 8.99, "category": "beauty", "rating": 4.32, "brand": "Nail Couture", "description": "Vibrant red polish", "thumbnail": ""},
+    {"id": 6, "title": "Calvin Klein CK One", "price": 49.99, "category": "fragrances", "rating": 4.85, "brand": "Calvin Klein", "description": "Classic unisex fragrance", "thumbnail": ""},
+    {"id": 7, "title": "Chanel Coco Noir", "price": 129.99, "category": "fragrances", "rating": 4.21, "brand": "Chanel", "description": "Elegant evening scent", "thumbnail": ""},
+    {"id": 8, "title": "Dior J'adore", "price": 89.99, "category": "fragrances", "rating": 4.62, "brand": "Dior", "description": "Iconic floral fragrance", "thumbnail": ""},
+    {"id": 9, "title": "Samsung Galaxy S24", "price": 799.99, "category": "smartphones", "rating": 4.50, "brand": "Samsung", "description": "Flagship smartphone", "thumbnail": ""},
+    {"id": 10, "title": "iPhone 15 Pro", "price": 1099.99, "category": "smartphones", "rating": 4.75, "brand": "Apple", "description": "Premium smartphone", "thumbnail": ""},
+    {"id": 11, "title": "HP Pavilion 15", "price": 499.99, "category": "laptops", "rating": 4.10, "brand": "HP", "description": "Everyday laptop", "thumbnail": ""},
+    {"id": 12, "title": "Dell XPS 13", "price": 999.99, "category": "laptops", "rating": 4.60, "brand": "Dell", "description": "Ultra-thin laptop", "thumbnail": ""},
+    {"id": 13, "title": "Nike Air Max 270", "price": 129.99, "category": "mens-shoes", "rating": 4.45, "brand": "Nike", "description": "Comfortable running shoes", "thumbnail": ""},
+    {"id": 14, "title": "Adidas Ultraboost", "price": 149.99, "category": "mens-shoes", "rating": 4.55, "brand": "Adidas", "description": "Premium running shoes", "thumbnail": ""},
+    {"id": 15, "title": "Gucci Bloom", "price": 79.99, "category": "womens-dresses", "rating": 3.90, "brand": "Gucci", "description": "Floral summer dress", "thumbnail": ""},
+]
+
+FALLBACK_CARTS = [
+    {"id": 1, "userId": 1, "totalProducts": 3, "totalQuantity": 8, "total": 1220.92,
+     "products": [
+         {"id": 1, "title": "Essence Mascara", "price": 9.99, "quantity": 4, "total": 39.96},
+         {"id": 9, "title": "Samsung Galaxy S24", "price": 799.99, "quantity": 1, "total": 799.99},
+         {"id": 6, "title": "Calvin Klein CK One", "price": 49.99, "quantity": 3, "total": 149.97},
+     ]},
+    {"id": 2, "userId": 2, "totalProducts": 2, "totalQuantity": 3, "total": 1149.98,
+     "products": [
+         {"id": 10, "title": "iPhone 15 Pro", "price": 1099.99, "quantity": 1, "total": 1099.99},
+         {"id": 3, "title": "Powder Canister", "price": 14.99, "quantity": 2, "total": 29.98},
+     ]},
+    {"id": 3, "userId": 1, "totalProducts": 2, "totalQuantity": 3, "total": 629.98,
+     "products": [
+         {"id": 11, "title": "HP Pavilion 15", "price": 499.99, "quantity": 1, "total": 499.99},
+         {"id": 13, "title": "Nike Air Max 270", "price": 129.99, "quantity": 1, "total": 129.99},
+     ]},
+    {"id": 4, "userId": 3, "totalProducts": 3, "totalQuantity": 5, "total": 489.95,
+     "products": [
+         {"id": 7, "title": "Chanel Coco Noir", "price": 129.99, "quantity": 2, "total": 259.98},
+         {"id": 4, "title": "Red Lipstick", "price": 12.99, "quantity": 1, "total": 12.99},
+         {"id": 8, "title": "Dior J'adore", "price": 89.99, "quantity": 2, "total": 179.98},
+     ]},
+    {"id": 5, "userId": 4, "totalProducts": 2, "totalQuantity": 3, "total": 1279.98,
+     "products": [
+         {"id": 14, "title": "Adidas Ultraboost", "price": 149.99, "quantity": 2, "total": 299.98},
+         {"id": 12, "title": "Dell XPS 13", "price": 999.99, "quantity": 1, "total": 999.99},
+     ]},
+]
+
+FALLBACK_USERS = [
+    {"id": 1, "firstName": "Emily", "lastName": "Johnson", "email": "emily.johnson@test.com", "phone": "+1-555-1234", "username": "emilyj",
+     "address": {"address": "626 Main Street", "city": "Phoenix", "state": "AZ", "postalCode": "85001"}},
+    {"id": 2, "firstName": "Michael", "lastName": "Williams", "email": "michael.williams@test.com", "phone": "+1-555-5678", "username": "mikew",
+     "address": {"address": "385 Fifth Street", "city": "Houston", "state": "TX", "postalCode": "77001"}},
+    {"id": 3, "firstName": "Sophia", "lastName": "Brown", "email": "sophia.brown@test.com", "phone": "+1-555-9012", "username": "sophiab",
+     "address": {"address": "100 Oak Avenue", "city": "Chicago", "state": "IL", "postalCode": "60601"}},
+    {"id": 4, "firstName": "James", "lastName": "Davis", "email": "james.davis@test.com", "phone": "+1-555-3456", "username": "jamesd",
+     "address": {"address": "250 Pine Road", "city": "Seattle", "state": "WA", "postalCode": "98101"}},
+]
+
+# COMMAND ----------
+
+def fetch_api_data(endpoint: str, wrapper_key: str = None) -> list:
+    """Fetch data from DummyJSON API with fallback to embedded data."""
+    url = f"{API_BASE}/{endpoint}"
+    print(f"Fetching: {url}")
+    try:
+        response = requests.get(url, timeout=30)
+        response.raise_for_status()
+        data = response.json()
+        if wrapper_key and wrapper_key in data:
+            data = data[wrapper_key]
+        print(f"  -> {len(data)} records fetched from API")
+        return data
+    except Exception as e:
+        print(f"  ! API unavailable ({e}), using fallback data")
+        fallback = {
+            "products": FALLBACK_PRODUCTS,
+            "carts": FALLBACK_CARTS,
+            "users": FALLBACK_USERS,
+        }
+        data = fallback.get(endpoint, [])
+        print(f"  -> {len(data)} records loaded from fallback")
+        return data
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC ## 1. Ingest Products
 
 # COMMAND ----------
 
-def fetch_api_data(endpoint: str) -> list:
-    """Fetch data from FakeStore API endpoint."""
-    url = f"{API_BASE}/{endpoint}"
-    print(f"Fetching: {url}")
-    response = requests.get(url, timeout=30)
-    response.raise_for_status()
-    data = response.json()
-    print(f"  → {len(data)} records fetched")
-    return data
-
-# COMMAND ----------
-
 # Fetch and write Products
-products_data = fetch_api_data("products")
+products_data = fetch_api_data("products", wrapper_key="products")
 df_products = spark.createDataFrame(products_data)
 df_products = (df_products
     .withColumn("_ingestion_timestamp", current_timestamp())
@@ -73,7 +149,7 @@ display(spark.sql("SELECT id, title, price, category FROM default.products_bronz
 # COMMAND ----------
 
 # Fetch and write Carts
-carts_data = fetch_api_data("carts")
+carts_data = fetch_api_data("carts", wrapper_key="carts")
 df_carts = spark.createDataFrame(carts_data)
 df_carts = (df_carts
     .withColumn("_ingestion_timestamp", current_timestamp())
@@ -86,7 +162,7 @@ print("✓ default.carts_bronze written")
 
 # COMMAND ----------
 
-display(spark.sql("SELECT id, userId, date, size(products) as num_items FROM default.carts_bronze LIMIT 5"))
+display(spark.sql("SELECT id, userId, totalProducts, totalQuantity FROM default.carts_bronze LIMIT 5"))
 
 # COMMAND ----------
 
@@ -96,7 +172,7 @@ display(spark.sql("SELECT id, userId, date, size(products) as num_items FROM def
 # COMMAND ----------
 
 # Fetch and write Users
-users_data = fetch_api_data("users")
+users_data = fetch_api_data("users", wrapper_key="users")
 df_users = spark.createDataFrame(users_data)
 df_users = (df_users
     .withColumn("_ingestion_timestamp", current_timestamp())

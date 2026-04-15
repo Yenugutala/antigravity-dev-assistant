@@ -5,28 +5,30 @@ from unittest.mock import patch, MagicMock
 
 
 PRODUCTS_SAMPLE = [
-    {"id": 1, "title": "Product A", "price": 29.99, "category": "electronics",
-     "description": "Test", "image": "http://img.com/1.jpg",
-     "rating": {"rate": 4.5, "count": 120}},
-    {"id": 2, "title": "Product B", "price": 59.99, "category": "jewelery",
-     "description": "Test 2", "image": "http://img.com/2.jpg",
-     "rating": {"rate": 3.8, "count": 80}},
+    {"id": 1, "title": "Essence Mascara", "price": 9.99, "category": "beauty",
+     "description": "Test", "rating": 2.56, "brand": "Essence", "thumbnail": ""},
+    {"id": 2, "title": "Eyeshadow Palette", "price": 19.99, "category": "beauty",
+     "description": "Test 2", "rating": 2.86, "brand": "Glamour Beauty", "thumbnail": ""},
 ]
 
 CARTS_SAMPLE = [
-    {"id": 1, "userId": 1, "date": "2024-01-01",
-     "products": [{"productId": 1, "quantity": 2}, {"productId": 2, "quantity": 1}]},
-    {"id": 2, "userId": 2, "date": "2024-01-02",
-     "products": [{"productId": 1, "quantity": 3}]},
+    {"id": 1, "userId": 1, "totalProducts": 2, "totalQuantity": 5, "total": 849.95,
+     "products": [
+         {"id": 1, "title": "Essence Mascara", "price": 9.99, "quantity": 4, "total": 39.96},
+         {"id": 9, "title": "Samsung Galaxy S24", "price": 799.99, "quantity": 1, "total": 799.99},
+     ]},
+    {"id": 2, "userId": 2, "totalProducts": 1, "totalQuantity": 3, "total": 59.97,
+     "products": [
+         {"id": 2, "title": "Eyeshadow Palette", "price": 19.99, "quantity": 3, "total": 59.97},
+     ]},
 ]
 
 USERS_SAMPLE = [
-    {"id": 1, "email": "john@test.com", "username": "johnd",
-     "name": {"firstname": "John", "lastname": "Doe"},
-     "phone": "1-555-1234",
-     "address": {"city": "NYC", "street": "Main St", "number": 123,
-                 "zipcode": "10001",
-                 "geolocation": {"lat": "40.7", "long": "-74.0"}}},
+    {"id": 1, "email": "emily.johnson@test.com", "username": "emilyj",
+     "firstName": "Emily", "lastName": "Johnson",
+     "phone": "+1-555-1234",
+     "address": {"address": "626 Main Street", "city": "Phoenix",
+                 "state": "AZ", "postalCode": "85001"}},
 ]
 
 
@@ -36,40 +38,40 @@ class TestBronzeAPIFetch:
     @patch("requests.get")
     def test_fetch_products_returns_data(self, mock_get: MagicMock) -> None:
         mock_get.return_value = MagicMock(status_code=200)
-        mock_get.return_value.json.return_value = PRODUCTS_SAMPLE
+        mock_get.return_value.json.return_value = {"products": PRODUCTS_SAMPLE}
         mock_get.return_value.raise_for_status = MagicMock()
 
-        response = requests.get("https://fakestoreapi.com/products")
+        response = requests.get("https://dummyjson.com/products")
         data = response.json()
 
-        assert len(data) == 2
-        assert data[0]["id"] == 1
-        assert data[0]["price"] == 29.99
+        assert len(data["products"]) == 2
+        assert data["products"][0]["id"] == 1
+        assert data["products"][0]["price"] == 9.99
 
     @patch("requests.get")
     def test_fetch_carts_returns_data(self, mock_get: MagicMock) -> None:
         mock_get.return_value = MagicMock(status_code=200)
-        mock_get.return_value.json.return_value = CARTS_SAMPLE
+        mock_get.return_value.json.return_value = {"carts": CARTS_SAMPLE}
         mock_get.return_value.raise_for_status = MagicMock()
 
-        response = requests.get("https://fakestoreapi.com/carts")
+        response = requests.get("https://dummyjson.com/carts")
         data = response.json()
 
-        assert len(data) == 2
-        assert data[0]["userId"] == 1
-        assert len(data[0]["products"]) == 2
+        assert len(data["carts"]) == 2
+        assert data["carts"][0]["userId"] == 1
+        assert len(data["carts"][0]["products"]) == 2
 
     @patch("requests.get")
     def test_fetch_users_returns_data(self, mock_get: MagicMock) -> None:
         mock_get.return_value = MagicMock(status_code=200)
-        mock_get.return_value.json.return_value = USERS_SAMPLE
+        mock_get.return_value.json.return_value = {"users": USERS_SAMPLE}
         mock_get.return_value.raise_for_status = MagicMock()
 
-        response = requests.get("https://fakestoreapi.com/users")
+        response = requests.get("https://dummyjson.com/users")
         data = response.json()
 
-        assert len(data) == 1
-        assert data[0]["email"] == "john@test.com"
+        assert len(data["users"]) == 1
+        assert data["users"][0]["email"] == "emily.johnson@test.com"
 
     @patch("requests.get")
     def test_api_error_raises_exception(self, mock_get: MagicMock) -> None:
@@ -77,7 +79,7 @@ class TestBronzeAPIFetch:
         mock_get.return_value.raise_for_status.side_effect = requests.exceptions.HTTPError("500 Server Error")
 
         with pytest.raises(requests.exceptions.HTTPError):
-            response = requests.get("https://fakestoreapi.com/products")
+            response = requests.get("https://dummyjson.com/products")
             response.raise_for_status()
 
 
@@ -90,7 +92,7 @@ class TestBronzeDataValidation:
             assert required.issubset(product.keys()), f"Missing fields in product {product['id']}"
 
     def test_carts_have_required_fields(self) -> None:
-        required = {"id", "userId", "date", "products"}
+        required = {"id", "userId", "products"}
         for cart in CARTS_SAMPLE:
             assert required.issubset(cart.keys()), f"Missing fields in cart {cart['id']}"
 
