@@ -1,0 +1,7 @@
+# Production dependencies (Databricks has pyspark pre-installed)
+requests>=2.31.0
+pyyaml>=6.0.1
+
+# Development dependencies
+pytest>=7.4.0
+ruff>=0.4.0
