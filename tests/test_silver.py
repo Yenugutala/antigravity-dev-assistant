@@ -6,21 +6,21 @@ class TestSilverCleansing:
     """Test cleansing rules applied in Silver layer."""
 
     def test_trim_whitespace(self) -> None:
-        assert "  Product A  ".strip() == "Product A"
+        assert "  Essence Mascara  ".strip() == "Essence Mascara"
 
     def test_lowercase_category(self) -> None:
-        assert "Electronics".lower().strip() == "electronics"
-        assert "  JEWELERY  ".lower().strip() == "jewelery"
+        assert "Beauty".lower().strip() == "beauty"
+        assert "  SMARTPHONES  ".lower().strip() == "smartphones"
 
     def test_lowercase_email(self) -> None:
-        assert "John@Test.COM".lower().strip() == "john@test.com"
+        assert "Emily.Johnson@Test.COM".lower().strip() == "emily.johnson@test.com"
 
     def test_cast_price_to_float(self) -> None:
-        assert float("29.99") == 29.99
+        assert float("9.99") == 9.99
         assert isinstance(float("100"), float)
 
     def test_negative_price_rejected(self) -> None:
-        prices = [29.99, -5.00, 100.00, -0.01]
+        prices = [9.99, -5.00, 19.99, -0.01]
         valid = [p for p in prices if p >= 0]
         assert len(valid) == 2
         assert -5.00 not in valid
@@ -64,10 +64,10 @@ class TestSilverCartExplode:
 
     def test_explode_cart_products(self) -> None:
         cart = {
-            "id": 1, "userId": 1, "date": "2024-01-01",
+            "id": 1, "userId": 1, "totalProducts": 2, "totalQuantity": 5,
             "products": [
-                {"productId": 1, "quantity": 2},
-                {"productId": 2, "quantity": 1},
+                {"id": 1, "title": "Essence Mascara", "price": 9.99, "quantity": 4, "total": 39.96},
+                {"id": 9, "title": "Samsung Galaxy S24", "price": 799.99, "quantity": 1, "total": 799.99},
             ]
         }
         # Simulate LATERAL VIEW EXPLODE
@@ -76,16 +76,18 @@ class TestSilverCartExplode:
             exploded.append({
                 "cart_id": cart["id"],
                 "user_id": cart["userId"],
-                "product_id": item["productId"],
+                "product_id": item["id"],
                 "quantity": item["quantity"],
+                "line_total": item["total"],
             })
 
         assert len(exploded) == 2
         assert exploded[0]["product_id"] == 1
-        assert exploded[0]["quantity"] == 2
+        assert exploded[0]["quantity"] == 4
+        assert exploded[0]["line_total"] == 39.96
 
     def test_line_total_calculation(self) -> None:
-        price = 29.99
-        quantity = 3
+        price = 9.99
+        quantity = 4
         line_total = round(price * quantity, 2)
-        assert line_total == 89.97
+        assert line_total == 39.96

@@ -5,13 +5,13 @@ from collections import defaultdict
 
 SAMPLE_ORDERS = [
     {"cart_id": 1, "user_id": 1, "order_date": "2024-01-01", "product_id": 1,
-     "category": "electronics", "price": 29.99, "quantity": 2, "line_total": 59.98},
-    {"cart_id": 1, "user_id": 1, "order_date": "2024-01-01", "product_id": 2,
-     "category": "electronics", "price": 99.99, "quantity": 1, "line_total": 99.99},
-    {"cart_id": 2, "user_id": 2, "order_date": "2024-01-02", "product_id": 3,
-     "category": "jewelery", "price": 150.00, "quantity": 1, "line_total": 150.00},
-    {"cart_id": 3, "user_id": 1, "order_date": "2024-01-02", "product_id": 1,
-     "category": "electronics", "price": 29.99, "quantity": 3, "line_total": 89.97},
+     "category": "beauty", "price": 9.99, "quantity": 4, "line_total": 39.96},
+    {"cart_id": 1, "user_id": 1, "order_date": "2024-01-01", "product_id": 9,
+     "category": "smartphones", "price": 799.99, "quantity": 1, "line_total": 799.99},
+    {"cart_id": 2, "user_id": 2, "order_date": "2024-01-02", "product_id": 2,
+     "category": "beauty", "price": 19.99, "quantity": 3, "line_total": 59.97},
+    {"cart_id": 3, "user_id": 1, "order_date": "2024-01-02", "product_id": 11,
+     "category": "laptops", "price": 499.99, "quantity": 1, "line_total": 499.99},
 ]
 
 
@@ -29,23 +29,23 @@ class TestGoldRevenueByCategory:
 
     def test_category_count(self) -> None:
         result = self._aggregate_by_category()
-        assert len(result) == 2  # electronics, jewelery
+        assert len(result) == 3  # beauty, smartphones, laptops
 
-    def test_electronics_revenue(self) -> None:
+    def test_beauty_revenue(self) -> None:
         result = self._aggregate_by_category()
-        assert round(result["electronics"]["total_revenue"], 2) == 249.94
+        assert round(result["beauty"]["total_revenue"], 2) == 99.93
 
-    def test_jewelery_revenue(self) -> None:
+    def test_smartphones_revenue(self) -> None:
         result = self._aggregate_by_category()
-        assert round(result["jewelery"]["total_revenue"], 2) == 150.00
+        assert round(result["smartphones"]["total_revenue"], 2) == 799.99
 
-    def test_electronics_items_sold(self) -> None:
+    def test_beauty_items_sold(self) -> None:
         result = self._aggregate_by_category()
-        assert result["electronics"]["total_items"] == 6  # 2 + 1 + 3
+        assert result["beauty"]["total_items"] == 7  # 4 + 3
 
-    def test_electronics_order_count(self) -> None:
+    def test_beauty_order_count(self) -> None:
         result = self._aggregate_by_category()
-        assert len(result["electronics"]["orders"]) == 2  # cart 1 and 3
+        assert len(result["beauty"]["orders"]) == 2  # cart 1 and 2
 
     def test_revenue_is_non_negative(self) -> None:
         result = self._aggregate_by_category()
@@ -82,7 +82,7 @@ class TestGoldOrderSummary:
     def test_total_revenue_across_days(self) -> None:
         result = self._aggregate_by_date()
         total = sum(d["revenue"] for d in result.values())
-        assert round(total, 2) == 399.94
+        assert round(total, 2) == 1399.91
 
     def test_orders_greater_than_zero(self) -> None:
         result = self._aggregate_by_date()

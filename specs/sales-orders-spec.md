@@ -1,6 +1,6 @@
 ---
 # PIPELINE SPECIFICATION: Sales Orders Pipeline
-# Source: FakeStore API (https://fakestoreapi.com)
+# Source: DummyJSON API (https://dummyjson.com)
 # Medallion: Bronze (PySpark) → Silver (Spark SQL) → Gold (Spark SQL)
 
 pipeline_name: "sales-orders"
@@ -13,15 +13,15 @@ version: "1.0"
 source:
   system: "REST API"
   format: "json"
-  path_or_endpoint: "https://fakestoreapi.com"
+  path_or_endpoint: "https://dummyjson.com"
   auth_required: false
   schema_evolution: false
   endpoints:
-    - url: "https://fakestoreapi.com/products"
+    - url: "https://dummyjson.com/products"
       entity: "products"
-    - url: "https://fakestoreapi.com/carts"
+    - url: "https://dummyjson.com/carts"
       entity: "carts"
-    - url: "https://fakestoreapi.com/users"
+    - url: "https://dummyjson.com/users"
       entity: "users"
 
 volume:
@@ -173,11 +173,11 @@ consumers:
 
 ### Data Flow
 ```
-FakeStore API → Bronze (raw JSON → Delta) → Silver (cleansed, flattened) → Gold (aggregated metrics)
+DummyJSON API → Bronze (raw JSON → Delta) → Silver (cleansed, flattened) → Gold (aggregated metrics)
 ```
 
 ### Business Context
-This pipeline ingests product catalog, shopping cart (order), and customer data from the FakeStore API.
+This pipeline ingests product catalog, shopping cart (order), and customer data from the DummyJSON API.
 The Gold layer provides revenue analytics by product category and daily order summaries.
 
 ### Key Transformations
