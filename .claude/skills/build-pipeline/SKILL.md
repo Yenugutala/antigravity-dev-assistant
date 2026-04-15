@@ -22,7 +22,7 @@ for a Databricks Medallion Architecture pipeline (Bronze → Silver → Gold).
 
 ### Step 1: Read and Validate Specs
 1. Read the three spec files: bronze-spec.md, silver-spec.md, gold-spec.md
-2. Parse YAML frontmatter to extract: domain, entity, source config, schemas, business rules
+2. Parse Markdown tables to extract: domain, entity, source config, schemas, business rules
 3. Validate all required fields are present
 4. Extract schema names: `b_<pipeline>`, `s_<pipeline>`, `g_<pipeline>`
 

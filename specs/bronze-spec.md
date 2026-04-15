@@ -1,110 +1,87 @@
----
-# BRONZE SPECIFICATION: Sales Orders — Raw Data Ingestion
-# Reference: docs/business-requirement.md
+# Bronze Specification: Sales Orders — Raw Data Ingestion
 
-pipeline_name: "salesorders-bronze"
-domain: "sales"
-entity: "orders"
-layer: "bronze"
-owner: "data-engineering-team"
-version: "1.0"
+> Reference: [Business Requirement](../docs/business-requirement.md)
 
-source:
-  system: "REST API"
-  format: "json"
-  base_url: "https://dummyjson.com"
-  auth_required: false
-  endpoints:
-    - url: "/products"
-      entity: "products"
-      wrapper_key: "products"
-    - url: "/carts"
-      entity: "carts"
-      wrapper_key: "carts"
-    - url: "/users"
-      entity: "users"
-      wrapper_key: "users"
+## Pipeline Info
 
-target_schema: "b_salesorders"
+| Field | Value |
+|-------|-------|
+| Pipeline Name | salesorders-bronze |
+| Domain | sales |
+| Entity | orders |
+| Layer | bronze |
+| Owner | data-engineering-team |
+| Version | 1.0 |
 
-tables:
-  products:
-    columns:
-      - name: "id"
-        type: "integer"
-        nullable: false
-      - name: "title"
-        type: "string"
-        nullable: false
-      - name: "price"
-        type: "double"
-        nullable: false
-      - name: "category"
-        type: "string"
-        nullable: false
-      - name: "rating"
-        type: "double"
-        nullable: true
-      - name: "brand"
-        type: "string"
-        nullable: true
-      - name: "description"
-        type: "string"
-        nullable: true
+## Source
 
-  carts:
-    columns:
-      - name: "id"
-        type: "integer"
-        nullable: false
-      - name: "userId"
-        type: "integer"
-        nullable: false
-      - name: "totalProducts"
-        type: "integer"
-        nullable: true
-      - name: "totalQuantity"
-        type: "integer"
-        nullable: true
-      - name: "total"
-        type: "double"
-        nullable: true
-      - name: "products"
-        type: "array<struct<id: int, title: string, price: double, quantity: int, total: double>>"
-        nullable: false
+| Field | Value |
+|-------|-------|
+| System | REST API |
+| Format | JSON |
+| Base URL | `https://dummyjson.com` |
+| Auth Required | No |
 
-  users:
-    columns:
-      - name: "id"
-        type: "integer"
-        nullable: false
-      - name: "firstName"
-        type: "string"
-        nullable: true
-      - name: "lastName"
-        type: "string"
-        nullable: true
-      - name: "email"
-        type: "string"
-        nullable: false
-      - name: "phone"
-        type: "string"
-        nullable: true
-      - name: "username"
-        type: "string"
-        nullable: false
-      - name: "address"
-        type: "struct<address: string, city: string, state: string, postalCode: string>"
-        nullable: true
+### API Endpoints
 
-ingestion_method: "api_call"
-processing_mode: "batch"
-write_mode: "overwrite"
-metadata_columns:
-  - "_ingestion_timestamp"
-  - "_source"
-  - "_batch_id"
----
+| Endpoint | Entity | Wrapper Key |
+|----------|--------|-------------|
+| `/products` | products | `products` |
+| `/carts` | carts | `carts` |
+| `/users` | users | `users` |
+
+## Target Schema: `b_salesorders`
+
+### Table: `b_salesorders.products`
+
+| Column | Type | Nullable |
+|--------|------|----------|
+| id | INTEGER | No |
+| title | STRING | No |
+| price | DOUBLE | No |
+| category | STRING | No |
+| rating | DOUBLE | Yes |
+| brand | STRING | Yes |
+| description | STRING | Yes |
+
+### Table: `b_salesorders.carts`
+
+| Column | Type | Nullable |
+|--------|------|----------|
+| id | INTEGER | No |
+| userId | INTEGER | No |
+| totalProducts | INTEGER | Yes |
+| totalQuantity | INTEGER | Yes |
+| total | DOUBLE | Yes |
+| products | ARRAY\<STRUCT\<id: INT, title: STRING, price: DOUBLE, quantity: INT, total: DOUBLE\>\> | No |
+
+### Table: `b_salesorders.users`
+
+| Column | Type | Nullable |
+|--------|------|----------|
+| id | INTEGER | No |
+| firstName | STRING | Yes |
+| lastName | STRING | Yes |
+| email | STRING | No |
+| phone | STRING | Yes |
+| username | STRING | No |
+| address | STRUCT\<address: STRING, city: STRING, state: STRING, postalCode: STRING\> | Yes |
+
+## Ingestion Config
+
+| Field | Value |
+|-------|-------|
+| Ingestion Method | api_call |
+| Processing Mode | batch |
+| Write Mode | overwrite |
+
+### Metadata Columns (added automatically)
+
+| Column | Description |
+|--------|-------------|
+| `_ingestion_timestamp` | Timestamp when record was ingested |
+| `_source` | Source system identifier |
+| `_batch_id` | Unique batch run ID |
 
 ## Ingestion Notes
 

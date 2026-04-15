@@ -1,93 +1,106 @@
+# Silver Specification: Sales Orders — Cleansing & Transformation
+
+> Reference: [Business Requirement](../docs/business-requirement.md)
+
+## Pipeline Info
+
+| Field | Value |
+|-------|-------|
+| Pipeline Name | salesorders-silver |
+| Domain | sales |
+| Entity | orders |
+| Layer | silver |
+| Owner | data-engineering-team |
+| Version | 1.0 |
+
+## Source & Target
+
+| Field | Value |
+|-------|-------|
+| Source Schema | `b_salesorders` |
+| Target Schema | `s_salesorders` |
+
 ---
-# SILVER SPECIFICATION: Sales Orders — Cleansing & Transformation
-# Reference: docs/business-requirement.md
 
-pipeline_name: "salesorders-silver"
-domain: "sales"
-entity: "orders"
-layer: "silver"
-owner: "data-engineering-team"
-version: "1.0"
+## Table: `s_salesorders.products`
 
-source_schema: "b_salesorders"
-target_schema: "s_salesorders"
+**Source**: `b_salesorders.products`
 
-tables:
-  products:
-    source: "b_salesorders.products"
-    target: "s_salesorders.products"
-    transformations:
-      - column: "id"
-        rule: "Rename to product_id"
-      - column: "title"
-        rule: "TRIM whitespace"
-      - column: "price"
-        rule: "CAST to DOUBLE"
-      - column: "category"
-        rule: "LOWER and TRIM"
-      - column: "rating"
-        rule: "CAST to DOUBLE, rename to rating_score"
-    filter: "id IS NOT NULL AND price >= 0"
-    deduplication:
-      key: "product_id"
-      order_by: "_ingestion_timestamp DESC"
-      strategy: "keep_latest"
+### Transformations
 
-  orders:
-    source: "b_salesorders.carts"
-    target: "s_salesorders.orders"
-    transformations:
-      - rule: "LATERAL VIEW EXPLODE products array into individual line items"
-      - rule: "LEFT JOIN with s_salesorders.products to enrich with category and price"
-      - rule: "Calculate line_total = ROUND(item.total OR price * quantity, 2)"
-      - rule: "Set order_date = CURRENT_DATE()"
-    output_columns:
-      - "cart_id"
-      - "user_id"
-      - "order_date"
-      - "product_id"
-      - "product_title"
-      - "category"
-      - "price"
-      - "quantity"
-      - "line_total"
-    deduplication:
-      key: ["cart_id", "product_id"]
-      order_by: "_ingestion_timestamp DESC"
-      strategy: "keep_latest"
+| Column | Rule |
+|--------|------|
+| id | Rename to `product_id` |
+| title | TRIM whitespace |
+| price | CAST to DOUBLE |
+| category | LOWER and TRIM |
+| rating | CAST to DOUBLE, rename to `rating_score` |
 
-  customers:
-    source: "b_salesorders.users"
-    target: "s_salesorders.customers"
-    transformations:
-      - column: "id"
-        rule: "Rename to customer_id"
-      - column: "email"
-        rule: "LOWER and TRIM"
-      - column: "username"
-        rule: "LOWER and TRIM"
-      - column: "firstName"
-        rule: "Rename to first_name"
-      - column: "lastName"
-        rule: "Rename to last_name"
-      - column: "address.city"
-        rule: "Flatten to city"
-      - column: "address.address"
-        rule: "Flatten to street"
-      - column: "address.postalCode"
-        rule: "Flatten to zipcode"
-    filter: "id IS NOT NULL"
-    deduplication:
-      key: "customer_id"
-      order_by: "_ingestion_timestamp DESC"
-      strategy: "keep_latest"
+**Filter**: `id IS NOT NULL AND price >= 0`
 
-quarantine:
-  table: "s_salesorders.orders_quarantine"
-  rules:
-    - condition: "id IS NULL"
-      reason: "Missing cart ID"
+**Deduplication**: Partition by `product_id`, order by `_ingestion_timestamp DESC`, keep latest
+
 ---
+
+## Table: `s_salesorders.orders`
+
+**Source**: `b_salesorders.carts`
+
+### Transformations
+
+1. `LATERAL VIEW EXPLODE` products array into individual line items
+2. `LEFT JOIN` with `s_salesorders.products` to enrich with category and price
+3. Calculate `line_total = ROUND(item.total OR price * quantity, 2)`
+4. Set `order_date = CURRENT_DATE()`
+
+### Output Columns
+
+| Column | Description |
+|--------|-------------|
+| cart_id | Cart identifier |
+| user_id | Customer reference |
+| order_date | Date of processing |
+| product_id | Product identifier |
+| product_title | Product name |
+| category | Product category (from products join) |
+| price | Unit price |
+| quantity | Quantity ordered |
+| line_total | Total for this line item |
+
+**Deduplication**: Partition by `[cart_id, product_id]`, order by `_ingestion_timestamp DESC`, keep latest
+
+---
+
+## Table: `s_salesorders.customers`
+
+**Source**: `b_salesorders.users`
+
+### Transformations
+
+| Column | Rule |
+|--------|------|
+| id | Rename to `customer_id` |
+| email | LOWER and TRIM |
+| username | LOWER and TRIM |
+| firstName | Rename to `first_name` |
+| lastName | Rename to `last_name` |
+| address.city | Flatten to `city` |
+| address.address | Flatten to `street` |
+| address.postalCode | Flatten to `zipcode` |
+
+**Filter**: `id IS NOT NULL`
+
+**Deduplication**: Partition by `customer_id`, order by `_ingestion_timestamp DESC`, keep latest
+
+---
+
+## Quarantine
+
+| Field | Value |
+|-------|-------|
+| Table | `s_salesorders.orders_quarantine` |
+| Condition | `id IS NULL` |
+| Reason | Missing cart ID |
 
 ## Transformation Notes
 
