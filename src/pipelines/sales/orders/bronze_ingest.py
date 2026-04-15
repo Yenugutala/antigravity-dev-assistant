@@ -13,7 +13,11 @@
 import requests
 import uuid
 from datetime import datetime
-from pyspark.sql.functions import current_timestamp, lit, col
+from pyspark.sql.functions import current_timestamp, lit
+from pyspark.sql.types import (
+    StructType, StructField, StringType, IntegerType,
+    DoubleType, ArrayType
+)
 
 # COMMAND ----------
 
@@ -35,21 +39,21 @@ print(f"Timestamp: {datetime.now()}")
 
 # Embedded fallback data — guarantees demo works even if API is down
 FALLBACK_PRODUCTS = [
-    {"id": 1, "title": "Essence Mascara Lash Princess", "price": 9.99, "category": "beauty", "rating": 2.56, "brand": "Essence", "description": "Popular volumizing mascara", "thumbnail": ""},
-    {"id": 2, "title": "Eyeshadow Palette with Mirror", "price": 19.99, "category": "beauty", "rating": 2.86, "brand": "Glamour Beauty", "description": "Versatile palette", "thumbnail": ""},
-    {"id": 3, "title": "Powder Canister", "price": 14.99, "category": "beauty", "rating": 4.64, "brand": "Velvet Touch", "description": "Fine setting powder", "thumbnail": ""},
-    {"id": 4, "title": "Red Lipstick", "price": 12.99, "category": "beauty", "rating": 4.36, "brand": "Chic Cosmetics", "description": "Classic red lipstick", "thumbnail": ""},
-    {"id": 5, "title": "Red Nail Polish", "price": 8.99, "category": "beauty", "rating": 4.32, "brand": "Nail Couture", "description": "Vibrant red polish", "thumbnail": ""},
-    {"id": 6, "title": "Calvin Klein CK One", "price": 49.99, "category": "fragrances", "rating": 4.85, "brand": "Calvin Klein", "description": "Classic unisex fragrance", "thumbnail": ""},
-    {"id": 7, "title": "Chanel Coco Noir", "price": 129.99, "category": "fragrances", "rating": 4.21, "brand": "Chanel", "description": "Elegant evening scent", "thumbnail": ""},
-    {"id": 8, "title": "Dior J'adore", "price": 89.99, "category": "fragrances", "rating": 4.62, "brand": "Dior", "description": "Iconic floral fragrance", "thumbnail": ""},
-    {"id": 9, "title": "Samsung Galaxy S24", "price": 799.99, "category": "smartphones", "rating": 4.50, "brand": "Samsung", "description": "Flagship smartphone", "thumbnail": ""},
-    {"id": 10, "title": "iPhone 15 Pro", "price": 1099.99, "category": "smartphones", "rating": 4.75, "brand": "Apple", "description": "Premium smartphone", "thumbnail": ""},
-    {"id": 11, "title": "HP Pavilion 15", "price": 499.99, "category": "laptops", "rating": 4.10, "brand": "HP", "description": "Everyday laptop", "thumbnail": ""},
-    {"id": 12, "title": "Dell XPS 13", "price": 999.99, "category": "laptops", "rating": 4.60, "brand": "Dell", "description": "Ultra-thin laptop", "thumbnail": ""},
-    {"id": 13, "title": "Nike Air Max 270", "price": 129.99, "category": "mens-shoes", "rating": 4.45, "brand": "Nike", "description": "Comfortable running shoes", "thumbnail": ""},
-    {"id": 14, "title": "Adidas Ultraboost", "price": 149.99, "category": "mens-shoes", "rating": 4.55, "brand": "Adidas", "description": "Premium running shoes", "thumbnail": ""},
-    {"id": 15, "title": "Gucci Bloom", "price": 79.99, "category": "womens-dresses", "rating": 3.90, "brand": "Gucci", "description": "Floral summer dress", "thumbnail": ""},
+    {"id": 1, "title": "Essence Mascara Lash Princess", "price": 9.99, "category": "beauty", "rating": 2.56, "brand": "Essence", "description": "Popular volumizing mascara"},
+    {"id": 2, "title": "Eyeshadow Palette with Mirror", "price": 19.99, "category": "beauty", "rating": 2.86, "brand": "Glamour Beauty", "description": "Versatile palette"},
+    {"id": 3, "title": "Powder Canister", "price": 14.99, "category": "beauty", "rating": 4.64, "brand": "Velvet Touch", "description": "Fine setting powder"},
+    {"id": 4, "title": "Red Lipstick", "price": 12.99, "category": "beauty", "rating": 4.36, "brand": "Chic Cosmetics", "description": "Classic red lipstick"},
+    {"id": 5, "title": "Red Nail Polish", "price": 8.99, "category": "beauty", "rating": 4.32, "brand": "Nail Couture", "description": "Vibrant red polish"},
+    {"id": 6, "title": "Calvin Klein CK One", "price": 49.99, "category": "fragrances", "rating": 4.85, "brand": "Calvin Klein", "description": "Classic unisex fragrance"},
+    {"id": 7, "title": "Chanel Coco Noir", "price": 129.99, "category": "fragrances", "rating": 4.21, "brand": "Chanel", "description": "Elegant evening scent"},
+    {"id": 8, "title": "Dior J'adore", "price": 89.99, "category": "fragrances", "rating": 4.62, "brand": "Dior", "description": "Iconic floral fragrance"},
+    {"id": 9, "title": "Samsung Galaxy S24", "price": 799.99, "category": "smartphones", "rating": 4.50, "brand": "Samsung", "description": "Flagship smartphone"},
+    {"id": 10, "title": "iPhone 15 Pro", "price": 1099.99, "category": "smartphones", "rating": 4.75, "brand": "Apple", "description": "Premium smartphone"},
+    {"id": 11, "title": "HP Pavilion 15", "price": 499.99, "category": "laptops", "rating": 4.10, "brand": "HP", "description": "Everyday laptop"},
+    {"id": 12, "title": "Dell XPS 13", "price": 999.99, "category": "laptops", "rating": 4.60, "brand": "Dell", "description": "Ultra-thin laptop"},
+    {"id": 13, "title": "Nike Air Max 270", "price": 129.99, "category": "mens-shoes", "rating": 4.45, "brand": "Nike", "description": "Comfortable running shoes"},
+    {"id": 14, "title": "Adidas Ultraboost", "price": 149.99, "category": "mens-shoes", "rating": 4.55, "brand": "Adidas", "description": "Premium running shoes"},
+    {"id": 15, "title": "Gucci Bloom Dress", "price": 79.99, "category": "womens-dresses", "rating": 3.90, "brand": "Gucci", "description": "Floral summer dress"},
 ]
 
 FALLBACK_CARTS = [
@@ -64,7 +68,7 @@ FALLBACK_CARTS = [
          {"id": 10, "title": "iPhone 15 Pro", "price": 1099.99, "quantity": 1, "total": 1099.99},
          {"id": 3, "title": "Powder Canister", "price": 14.99, "quantity": 2, "total": 29.98},
      ]},
-    {"id": 3, "userId": 1, "totalProducts": 2, "totalQuantity": 3, "total": 629.98,
+    {"id": 3, "userId": 1, "totalProducts": 2, "totalQuantity": 2, "total": 629.98,
      "products": [
          {"id": 11, "title": "HP Pavilion 15", "price": 499.99, "quantity": 1, "total": 499.99},
          {"id": 13, "title": "Nike Air Max 270", "price": 129.99, "quantity": 1, "total": 129.99},
@@ -121,13 +125,127 @@ def fetch_api_data(endpoint: str, wrapper_key: str = None) -> list:
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC ## Schemas — explicit types to avoid Spark inference errors
+
+# COMMAND ----------
+
+# Explicit schemas prevent CANNOT_MERGE_TYPE errors (DoubleType vs LongType)
+products_schema = StructType([
+    StructField("id", IntegerType(), False),
+    StructField("title", StringType(), False),
+    StructField("price", DoubleType(), False),
+    StructField("category", StringType(), False),
+    StructField("rating", DoubleType(), True),
+    StructField("brand", StringType(), True),
+    StructField("description", StringType(), True),
+])
+
+cart_item_schema = StructType([
+    StructField("id", IntegerType(), False),
+    StructField("title", StringType(), True),
+    StructField("price", DoubleType(), False),
+    StructField("quantity", IntegerType(), False),
+    StructField("total", DoubleType(), False),
+])
+
+carts_schema = StructType([
+    StructField("id", IntegerType(), False),
+    StructField("userId", IntegerType(), False),
+    StructField("totalProducts", IntegerType(), True),
+    StructField("totalQuantity", IntegerType(), True),
+    StructField("total", DoubleType(), True),
+    StructField("products", ArrayType(cart_item_schema), False),
+])
+
+address_schema = StructType([
+    StructField("address", StringType(), True),
+    StructField("city", StringType(), True),
+    StructField("state", StringType(), True),
+    StructField("postalCode", StringType(), True),
+])
+
+users_schema = StructType([
+    StructField("id", IntegerType(), False),
+    StructField("firstName", StringType(), True),
+    StructField("lastName", StringType(), True),
+    StructField("email", StringType(), False),
+    StructField("phone", StringType(), True),
+    StructField("username", StringType(), False),
+    StructField("address", address_schema, True),
+])
+
+# COMMAND ----------
+
+def clean_products(raw_data: list) -> list:
+    """Keep only needed product fields with correct types."""
+    cleaned = []
+    for p in raw_data:
+        cleaned.append({
+            "id": int(p["id"]),
+            "title": str(p.get("title", "")),
+            "price": float(p.get("price", 0)),
+            "category": str(p.get("category", "")),
+            "rating": float(p.get("rating", 0)),
+            "brand": str(p.get("brand", "")),
+            "description": str(p.get("description", "")),
+        })
+    return cleaned
+
+def clean_carts(raw_data: list) -> list:
+    """Keep only needed cart fields with correct types."""
+    cleaned = []
+    for c in raw_data:
+        items = []
+        for item in c.get("products", []):
+            items.append({
+                "id": int(item["id"]),
+                "title": str(item.get("title", "")),
+                "price": float(item.get("price", 0)),
+                "quantity": int(item.get("quantity", 0)),
+                "total": float(item.get("total", 0)),
+            })
+        cleaned.append({
+            "id": int(c["id"]),
+            "userId": int(c["userId"]),
+            "totalProducts": int(c.get("totalProducts", 0)),
+            "totalQuantity": int(c.get("totalQuantity", 0)),
+            "total": float(c.get("total", 0)),
+            "products": items,
+        })
+    return cleaned
+
+def clean_users(raw_data: list) -> list:
+    """Keep only needed user fields with correct types."""
+    cleaned = []
+    for u in raw_data:
+        addr = u.get("address", {})
+        cleaned.append({
+            "id": int(u["id"]),
+            "firstName": str(u.get("firstName", "")),
+            "lastName": str(u.get("lastName", "")),
+            "email": str(u.get("email", "")),
+            "phone": str(u.get("phone", "")),
+            "username": str(u.get("username", "")),
+            "address": {
+                "address": str(addr.get("address", "")),
+                "city": str(addr.get("city", "")),
+                "state": str(addr.get("state", "")),
+                "postalCode": str(addr.get("postalCode", "")),
+            },
+        })
+    return cleaned
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC ## 1. Ingest Products
 
 # COMMAND ----------
 
-# Fetch and write Products
+# Fetch, clean, and write Products
 products_data = fetch_api_data("products", wrapper_key="products")
-df_products = spark.createDataFrame(products_data)
+products_clean = clean_products(products_data)
+df_products = spark.createDataFrame(products_clean, schema=products_schema)
 df_products = (df_products
     .withColumn("_ingestion_timestamp", current_timestamp())
     .withColumn("_source", lit(SOURCE))
@@ -148,9 +266,10 @@ display(spark.sql("SELECT id, title, price, category FROM default.products_bronz
 
 # COMMAND ----------
 
-# Fetch and write Carts
+# Fetch, clean, and write Carts
 carts_data = fetch_api_data("carts", wrapper_key="carts")
-df_carts = spark.createDataFrame(carts_data)
+carts_clean = clean_carts(carts_data)
+df_carts = spark.createDataFrame(carts_clean, schema=carts_schema)
 df_carts = (df_carts
     .withColumn("_ingestion_timestamp", current_timestamp())
     .withColumn("_source", lit(SOURCE))
@@ -171,9 +290,10 @@ display(spark.sql("SELECT id, userId, totalProducts, totalQuantity FROM default.
 
 # COMMAND ----------
 
-# Fetch and write Users
+# Fetch, clean, and write Users
 users_data = fetch_api_data("users", wrapper_key="users")
-df_users = spark.createDataFrame(users_data)
+users_clean = clean_users(users_data)
+df_users = spark.createDataFrame(users_clean, schema=users_schema)
 df_users = (df_users
     .withColumn("_ingestion_timestamp", current_timestamp())
     .withColumn("_source", lit(SOURCE))
