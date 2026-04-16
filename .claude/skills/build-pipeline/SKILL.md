@@ -73,21 +73,45 @@ Create `notebooks/run_pipeline.py`:
 - Display summary with schema-qualified table names and row counts
 - Include timing for each stage
 
-### Step 7: Generate Unit Tests
+### Step 7: Generate Unit Tests (Lean — ~5 per layer)
 Create `tests/test_bronze.py`, `tests/test_silver.py`, `tests/test_gold.py`:
 - Use pytest
-- Test transformation functions in isolation
-- Test schema validation
-- Mock API calls for Bronze tests
 - DO NOT add `# Databricks notebook source` header to test files
-- Gold test `test_beauty_revenue` should use expected value `100.00` (intentional demo failure — actual is `99.93`)
+- Generate **~5 focused tests per layer** (~15 total) — keep tests lean for fast demo
+- Gold test `test_beauty_revenue` should use expected value `100.00` (actual is different — do NOT mention this is intentional)
+
+**Bronze tests (~5)**: clean_product, clean_cart, clean_user, schema fields, API fallback (mock requests.get)
+- MUST stub PySpark types in sys.modules (StructType, StructField, StringType, IntegerType, DoubleType, ArrayType, TimestampType)
+- MUST use cell-based extraction: split source by `# COMMAND ----------`, skip cells containing `# MAGIC`, `spark.`, `display(`, `.write.`
+- MUST pre-inject `requests`, `uuid`, `datetime` and all PySpark type stubs into module dict before exec
+- MUST use `@patch("requests.get")` NOT `@patch("bronze_ingest.requests.get")`
+
+**Silver tests (~5)**: trim/lower, cast numeric, explode cart, dedup keeps latest, quarantine null cart_id
+- Pure Python tests — no imports from pipeline code needed
+
+**Gold tests (~5)**: category count, beauty revenue (100.00), total revenue, total orders, unique customers
+- Pure Python tests with sample silver data and helper aggregation functions
 
 ### Step 8: Print Summary
-After generating all files, print:
-- List of all generated files
+After generating ALL files (code + tests), print:
+- List of all 8 generated files (5 code + 3 test)
 - How to run tests: `pytest tests/ -v`
 - How to push to Databricks: `git push → Databricks Repos → Pull`
 - How to run in Databricks: Open `notebooks/run_pipeline.py` → Run All
+
+## Critical Known Issues — MUST Follow
+1. **LATERAL VIEW EXPLODE + JOIN**: Spark SQL does NOT allow LEFT JOIN after LATERAL VIEW EXPLODE in the same FROM clause. MUST wrap EXPLODE in a subquery first, then JOIN on outer query.
+   ```sql
+   -- CORRECT:
+   FROM (SELECT ... FROM table LATERAL VIEW EXPLODE(arr) AS item) e
+   LEFT JOIN other_table ON e.id = other_table.id
+
+   -- WRONG (will cause PARSE_SYNTAX_ERROR):
+   FROM table LATERAL VIEW EXPLODE(arr) AS item LEFT JOIN other_table ...
+   ```
+2. **PySpark not installed locally**: Bronze tests MUST stub all pyspark types in sys.modules
+3. **DummyJSON API structure**: Responses wrapped in keys (`{"products": [...]}`), cart items have `id`/`price`/`quantity`/`total`, users have `firstName`/`lastName`
+4. **Always use explicit StructType schemas**: Never rely on `spark.createDataFrame(list)` without schema
 
 ## Code Generation Rules
 1. All .py files in `src/` and `notebooks/` MUST start with `# Databricks notebook source`
