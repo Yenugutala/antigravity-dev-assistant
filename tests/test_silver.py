@@ -1,7 +1,5 @@
 """Unit tests for Silver Layer: Sales Orders — Cleansing & Transformation."""
 
-import pytest
-
 
 class TestSilverProducts:
     def test_trim_and_lower(self):

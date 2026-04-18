@@ -11,9 +11,8 @@
 
 import requests
 import uuid
-from datetime import datetime
 from pyspark.sql.types import (
-    StructType, StructField, StringType, IntegerType, DoubleType, ArrayType, TimestampType
+    StructType, StructField, StringType, IntegerType, DoubleType, ArrayType
 )
 from pyspark.sql.functions import lit, current_timestamp
 

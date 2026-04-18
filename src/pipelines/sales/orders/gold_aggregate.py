@@ -76,7 +76,7 @@ print("=" * 60)
 print("GOLD AGGREGATION COMPLETE")
 print("=" * 60)
 print(f"Schema: {GOLD_SCHEMA}")
-print(f"Tables created:")
+print("Tables created:")
 for table in ["revenue_by_category", "order_summary"]:
     count = spark.table(f"{GOLD_SCHEMA}.{table}").count()
     print(f"  {GOLD_SCHEMA}.{table}: {count} rows")

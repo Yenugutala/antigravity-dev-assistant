@@ -1,6 +1,5 @@
 """Unit tests for Bronze Layer: Sales Orders — Raw Data Ingestion."""
 
-import pytest
 import sys
 import types
 import pathlib
@@ -71,7 +70,8 @@ _BRONZE_PATH = pathlib.Path(__file__).resolve().parents[1] / "src" / "pipelines"
 
 def _load_bronze_module():
     """Load bronze_ingest.py as a module, extracting safe code blocks."""
-    import requests, uuid
+    import requests
+    import uuid
     from datetime import datetime
     source = _BRONZE_PATH.read_text()
     mod = types.ModuleType("bronze_ingest")
