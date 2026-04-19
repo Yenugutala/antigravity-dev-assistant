@@ -5,6 +5,7 @@ description: >
   generates all artifacts: HLD document, Bronze PySpark code, Silver Spark SQL code,
   Gold Spark SQL code, unit tests, and a Databricks run notebook.
   Invoke with "build pipeline", "generate pipeline", or when the user provides a spec file path.
+disable-model-invocation: true
 ---
 
 # Build Pipeline — Master Generator

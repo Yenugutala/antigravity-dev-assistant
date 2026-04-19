@@ -1,0 +1,75 @@
+name: Validate Claude Configuration
+
+on:
+  pull_request:
+    paths:
+      - '.claude/**'
+      - 'CLAUDE.md'
+      - '.github/CODEOWNERS'
+    branches:
+      - main
+
+jobs:
+  validate-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check CLAUDE.md line count
+        run: |
+          if [ -f ".claude/CLAUDE.md" ]; then
+            LINES=$(wc -l < .claude/CLAUDE.md)
+            if [ "$LINES" -gt 200 ]; then
+              echo "::error::.claude/CLAUDE.md is $LINES lines (max 200). Move details to .claude/rules/ files."
+              exit 1
+            fi
+            echo "CLAUDE.md: $LINES lines (OK)"
+          fi
+
+      - name: Validate settings.json syntax
+        run: |
+          if [ -f ".claude/settings.json" ]; then
+            if ! jq empty .claude/settings.json 2>/dev/null; then
+              echo "::error::.claude/settings.json has invalid JSON syntax"
+              exit 1
+            fi
+            echo "settings.json: valid JSON (OK)"
+          fi
+
+      - name: Check for hardcoded secrets
+        run: |
+          SECRETS_FOUND=0
+          for pattern in "DATABRICKS_TOKEN=" "AWS_SECRET_ACCESS_KEY=" "API_KEY=" "password=" "secret="; do
+            if grep -ri "$pattern" .claude/ CLAUDE.md 2>/dev/null | grep -v "CONTRIBUTING.md" | grep -v ".yml"; then
+              echo "::error::Potential hardcoded secret found: $pattern"
+              SECRETS_FOUND=1
+            fi
+          done
+          if [ "$SECRETS_FOUND" -eq 1 ]; then
+            exit 1
+          fi
+          echo "No hardcoded secrets found (OK)"
+
+      - name: Validate feature rules have paths frontmatter
+        run: |
+          INVALID=0
+          for file in .claude/rules/feature-*.md; do
+            if [ -f "$file" ]; then
+              if ! head -5 "$file" | grep -q "paths:"; then
+                echo "::error::$file is missing 'paths:' frontmatter. Feature rules must be path-scoped."
+                INVALID=1
+              fi
+            fi
+          done
+          if [ "$INVALID" -eq 1 ]; then
+            exit 1
+          fi
+          echo "Feature rules validation (OK)"
+
+      - name: Flag CODEOWNERS changes
+        run: |
+          if git diff origin/main -- .github/CODEOWNERS | grep -q .; then
+            echo "::warning::CODEOWNERS was modified — ensure architect has approved this change"
+          fi

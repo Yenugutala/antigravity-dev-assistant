@@ -1,0 +1,33 @@
+# ============================================================
+# CODEOWNERS — Protect core configuration files on main branch
+# ============================================================
+# GitHub uses THIS file from the BASE branch (main) to enforce
+# review requirements. Even if someone modifies CODEOWNERS on
+# develop, main's version still applies during PR review.
+#
+# Replace @architect2 @architect3 with real GitHub usernames.
+# ============================================================
+
+# --- This file itself (prevents tampering) ---
+.github/CODEOWNERS               @Yenugutala @architect2 @architect3
+
+# --- Core Claude Code configuration ---
+.claude/CLAUDE.md                 @Yenugutala @architect2 @architect3
+.claude/settings.json             @Yenugutala @architect2 @architect3
+
+# --- Shared skills (team workflows) ---
+.claude/skills/                   @Yenugutala @architect2 @architect3
+
+# --- Shared rules (layer-specific conventions) ---
+.claude/rules/bronze.md           @Yenugutala @architect2 @architect3
+.claude/rules/silver.md           @Yenugutala @architect2 @architect3
+.claude/rules/gold.md             @Yenugutala @architect2 @architect3
+.claude/rules/testing.md          @Yenugutala @architect2 @architect3
+.claude/rules/notebooks.md        @Yenugutala @architect2 @architect3
+
+# --- CI/CD workflows ---
+.github/workflows/                @Yenugutala @architect2 @architect3
+
+# --- Feature-specific rules (feature-*.md) ---
+# NO CODEOWNER — developers can freely add these
+# Naming convention: .claude/rules/feature-<name>.md

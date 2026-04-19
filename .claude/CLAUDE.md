@@ -37,3 +37,10 @@ User writes a spec → runs `/build-pipeline` → all code, tests, docs, and not
 - BRD at `docs/business-requirement.md` describes business need (no technical details)
 - Three separate specs: `specs/bronze-spec.md`, `specs/silver-spec.md`, `specs/gold-spec.md`
 - Code generation regenerates from specs; code MUST work first time
+
+## Team Governance
+- CODEOWNERS protects `.claude/` core files — architect approval required on PRs to main
+- Developers can add feature rules: `.claude/rules/feature-<name>.md` (must have `paths:` frontmatter)
+- Personal preferences go in `CLAUDE.local.md` (gitignored)
+- Direct push to develop allowed; PRs required only for develop → main
+- See `CONTRIBUTING.md` for full team guidelines
