@@ -7,9 +7,9 @@ import time
 
 PIPELINE_NAME = "Sales Orders"
 NOTEBOOKS = [
-    ("Bronze Ingestion", "/Repos/ai-pipeline-accelerator/src/pipelines/sales/orders/bronze_ingest"),
-    ("Silver Cleansing", "/Repos/ai-pipeline-accelerator/src/pipelines/sales/orders/silver_cleanse"),
-    ("Gold Aggregation", "/Repos/ai-pipeline-accelerator/src/pipelines/sales/orders/gold_aggregate"),
+    ("Bronze Ingestion", "../src/pipelines/sales/orders/bronze_ingest"),
+    ("Silver Cleansing", "../src/pipelines/sales/orders/silver_cleanse"),
+    ("Gold Aggregation", "../src/pipelines/sales/orders/gold_aggregate"),
 ]
 
 print(f"Starting {PIPELINE_NAME} Pipeline")
