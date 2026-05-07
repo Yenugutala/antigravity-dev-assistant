@@ -5,16 +5,12 @@ paths:
 
 # Bronze Layer Rules
 
-## API Source
-- Use `https://dummyjson.com` — FakeStore API is DEAD
-- DummyJSON wraps responses: `{"products": [...]}`, `{"carts": [...]}`, `{"users": [...]}`
-- Cart items have `id`/`price`/`quantity`/`total`; users have `firstName`/`lastName` (not nested); no `date` on carts
-
 ## Schema & Data
 - ALWAYS use explicit `StructType` schemas — NEVER rely on schema inference
-- ALWAYS embed fallback sample data so demo never fails even if API is down
-- Strip unnecessary fields from API response before DataFrame creation
-- Cast ALL numerics to `float` before creating DataFrame (prevents CANNOT_MERGE_TYPE)
+- ALWAYS embed fallback sample data so pipeline works even if source is unreachable
+- Strip unnecessary fields from source data before DataFrame creation
+- Cast ALL numerics to consistent types before creating DataFrame (prevents CANNOT_MERGE_TYPE)
+- Extract API response data using the `wrapper_key` defined in the spec
 
 ## Metadata Columns
 - `_ingestion_timestamp` — when data was ingested
