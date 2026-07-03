@@ -16,7 +16,6 @@ spark.sql("CREATE SCHEMA IF NOT EXISTS b_antigravity_sales")
 # Cell 2: Imports
 import requests
 import uuid
-import yaml
 from datetime import datetime
 from pyspark.sql.types import (
     StructType, StructField, IntegerType, StringType, DoubleType, ArrayType
@@ -42,8 +41,36 @@ except Exception:
             break
         config_path = os.path.join("..", config_path)
 
+config = {}
+current_path = []
 with open(config_path, "r") as f:
-    config = yaml.safe_load(f)
+    for line in f:
+        stripped = line.lstrip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        indent = len(line) - len(stripped)
+        level = indent // 2
+        current_path = current_path[:level]
+        
+        if ":" in stripped:
+            parts = stripped.split(":", 1)
+            key = parts[0].strip()
+            val = parts[1].split("#")[0].strip()
+            
+            if val.startswith('"') and val.endswith('"'):
+                val = val[1:-1]
+            elif val.startswith("'") and val.endswith("'"):
+                val = val[1:-1]
+                
+            target = config
+            for p in current_path:
+                target = target[p]
+                
+            if not val:
+                target[key] = {}
+                current_path.append(key)
+            else:
+                target[key] = val
 
 API_BASE_URL = config.get("source_api", "https://dummyjson.com")
 BATCH_ID = str(uuid.uuid4())
