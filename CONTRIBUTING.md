@@ -16,49 +16,20 @@
 
 ---
 
-## Claude Code Configuration
+## Antigravity Configuration
 
 ### What Goes Where
 
 | File | Who Can Edit | Purpose |
 |---|---|---|
-| `.claude/CLAUDE.md` | Architects only (via PR) | Project-wide conventions for all developers |
-| `.claude/rules/<layer>.md` | Architects only (via PR) | Shared layer rules (bronze, silver, gold, testing, notebooks) |
-| `.claude/rules/feature-<name>.md` | Any developer | Your feature-specific rules (must use `paths:` frontmatter) |
-| `.claude/settings.json` | Architects only (via PR) | Permissions, hooks, blocked commands |
-| `.claude/skills/` | Architects only (via PR) | Shared team skills (build-pipeline, etc.) |
-| `CLAUDE.local.md` | You (gitignored) | Your personal preferences |
-| `.claude/settings.local.json` | You (gitignored) | Your personal permission overrides |
+| `.agents/AGENTS.md` | Architects only (via PR) | Project-wide conventions for all developers |
+| `.agents/skills/` | Architects only (via PR) | Shared team skills (build-pipeline, etc.) |
 
-### How to Suggest Changes to CLAUDE.md or Shared Rules
+### How to Suggest Changes to AGENTS.md or Shared Skills
 1. Make the change on your branch
 2. Push to develop (takes effect immediately for all developers)
-3. When develop → main PR is created, architects review all `.claude/` changes
+3. When develop → main PR is created, architects review all `.agents/` changes
 4. If the change is rejected, architect corrects it before merging to main
-
-### How to Add Feature-Specific Rules
-Create a file named `.claude/rules/feature-<your-feature>.md` with `paths:` frontmatter:
-
-```markdown
----
-paths:
-  - "src/pipelines/<your-feature>/**/*.py"
----
-
-# Rules for <Your Feature>
-- Your feature-specific conventions here
-```
-
-This rule only loads when Claude works on files matching those paths.
-
-### Setting Up Your Local Preferences
-Create `CLAUDE.local.md` in the project root (it's gitignored):
-
-```markdown
-# My Preferences
-- I prefer verbose test output
-- Always show full file paths
-```
 
 ---
 
@@ -85,16 +56,9 @@ Create `CLAUDE.local.md` in the project root (it's gitignored):
 
 These files require architect approval when merging to main:
 - `.github/CODEOWNERS`
-- `.claude/CLAUDE.md`
-- `.claude/settings.json`
-- `.claude/skills/`
-- `.claude/rules/bronze.md`, `silver.md`, `gold.md`, `testing.md`, `notebooks.md`
+- `.agents/AGENTS.md`
+- `.agents/skills/`
 - `.github/workflows/`
-
-These files are **NOT protected** — any developer can add them:
-- `.claude/rules/feature-*.md` (feature-scoped rules)
-- `CLAUDE.local.md` (personal, gitignored)
-- `.claude/settings.local.json` (personal, gitignored)
 
 ---
 

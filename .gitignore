@@ -33,12 +33,8 @@ env/
 htmlcov/
 .coverage
 
-# Claude plans (auto-generated)
-.claude/plans/
-
-# Claude local files (personal, not shared)
-CLAUDE.local.md
-.claude/settings.local.json
+# Antigravity local files (personal, not shared)
+AGENTS.local.md
 
 # Local metadata
 local/
