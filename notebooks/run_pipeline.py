@@ -9,7 +9,7 @@
 # COMMAND ----------
 
 # Configuration
-PIPELINE_PATH = "src/pipelines/sales/orders"
+PIPELINE_PATH = "../src/pipelines/sales/orders"
 
 # Run Bronze Layer Ingestion
 try:
