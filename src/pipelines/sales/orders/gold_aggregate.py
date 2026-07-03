@@ -17,11 +17,21 @@ spark.sql("CREATE SCHEMA IF NOT EXISTS g_antigravity_sales")
 import os
 import yaml
 
-config_path = "config.yml"
-for _ in range(5):
-    if os.path.exists(config_path):
-        break
-    config_path = os.path.join("..", config_path)
+try:
+    notebook_path = dbutils.entrypoint.getDbutils().notebook().getContext().notebookPath().get()
+    if "/src/" in notebook_path:
+        repo_root = notebook_path.split("/src/")[0]
+    elif "/notebooks/" in notebook_path:
+        repo_root = notebook_path.split("/notebooks/")[0]
+    else:
+        repo_root = notebook_path
+    config_path = f"/Workspace{repo_root}/config.yml"
+except Exception:
+    config_path = "config.yml"
+    for _ in range(5):
+        if os.path.exists(config_path):
+            break
+        config_path = os.path.join("..", config_path)
 
 with open(config_path, "r") as f:
     config = yaml.safe_load(f)
