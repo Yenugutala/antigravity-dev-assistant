@@ -5,9 +5,9 @@ environment: "trial"          # community, trial, or prod
 
 # Databricks schemas (databases)
 schemas:
-  bronze: "b_salesorders"
-  silver: "s_salesorders"
-  gold: "g_salesorders"
+  bronze: "b_antigravity_sales"
+  silver: "s_antigravity_sales"
+  gold: "g_antigravity_sales"
 
 storage_root: "dbfs:/FileStore"
 
@@ -17,18 +17,18 @@ source_api: "https://dummyjson.com"
 # Table names — Bronze layer
 tables:
   bronze:
-    products: "b_salesorders.products"
-    carts: "b_salesorders.carts"
-    users: "b_salesorders.users"
+    products: "b_antigravity_sales.products"
+    carts: "b_antigravity_sales.carts"
+    users: "b_antigravity_sales.users"
 
   # Table names — Silver layer
   silver:
-    products: "s_salesorders.products"
-    orders: "s_salesorders.orders"
-    customers: "s_salesorders.customers"
-    quarantine: "s_salesorders.orders_quarantine"
+    products: "s_antigravity_sales.products"
+    orders: "s_antigravity_sales.orders"
+    customers: "s_antigravity_sales.customers"
+    quarantine: "s_antigravity_sales.orders_quarantine"
 
   # Table names — Gold layer
   gold:
-    revenue_by_category: "g_salesorders.revenue_by_category"
-    order_summary: "g_salesorders.order_summary"
+    revenue_by_category: "g_antigravity_sales.revenue_by_category"
+    order_summary: "g_antigravity_sales.order_summary"
