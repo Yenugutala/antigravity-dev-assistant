@@ -14,9 +14,16 @@ spark.sql("CREATE SCHEMA IF NOT EXISTS s_antigravity_sales")
 # COMMAND ----------
 
 # Cell 2: Imports & Configuration
+import os
 import yaml
 
-with open("config.yml", "r") as f:
+config_path = "config.yml"
+for _ in range(5):
+    if os.path.exists(config_path):
+        break
+    config_path = os.path.join("..", config_path)
+
+with open(config_path, "r") as f:
     config = yaml.safe_load(f)
 
 # COMMAND ----------

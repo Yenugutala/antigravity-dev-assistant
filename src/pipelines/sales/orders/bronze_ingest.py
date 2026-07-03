@@ -25,7 +25,14 @@ from pyspark.sql.types import (
 # COMMAND ----------
 
 # Cell 3: Configuration & Initialization
-with open("config.yml", "r") as f:
+import os
+config_path = "config.yml"
+for _ in range(5):
+    if os.path.exists(config_path):
+        break
+    config_path = os.path.join("..", config_path)
+
+with open(config_path, "r") as f:
     config = yaml.safe_load(f)
 
 API_BASE_URL = config.get("source_api", "https://dummyjson.com")
