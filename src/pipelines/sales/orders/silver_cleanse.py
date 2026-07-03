@@ -3,173 +3,177 @@
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC # Silver Layer: Sales Orders — Cleansing & Transformation
-# MAGIC Reads from `b_salesorders`, applies cleansing rules, writes to `s_salesorders`.
+# MAGIC # Silver Layer: Cleansing & Conformance (PySQL)
+# MAGIC Reads raw data from `b_antigravity_sales` and cleanses it into `s_antigravity_sales`.
 
 # COMMAND ----------
 
-# Create silver schema
-spark.sql("CREATE SCHEMA IF NOT EXISTS s_salesorders")
+# Cell 1: Schema Creation
+spark.sql("CREATE SCHEMA IF NOT EXISTS s_antigravity_sales")
 
 # COMMAND ----------
 
-# MAGIC %md
-# MAGIC ## Products — Cleanse & Deduplicate
+# Cell 2: Imports & Configuration
+import yaml
+
+with open("config.yml", "r") as f:
+    config = yaml.safe_load(f)
 
 # COMMAND ----------
 
+# Cell 3: Cleanse Products
+# Source: b_antigravity_sales.products
+# Target: s_antigravity_sales.products
 spark.sql("""
-    CREATE OR REPLACE TABLE s_salesorders.products AS
-    SELECT
-        product_id,
-        title,
-        price,
-        category,
-        rating_score,
-        _ingestion_timestamp
-    FROM (
-        SELECT
-            id AS product_id,
-            TRIM(title) AS title,
-            CAST(price AS DOUBLE) AS price,
-            LOWER(TRIM(category)) AS category,
-            CAST(rating AS DOUBLE) AS rating_score,
-            _ingestion_timestamp,
-            ROW_NUMBER() OVER (PARTITION BY id ORDER BY _ingestion_timestamp DESC) AS row_num
-        FROM b_salesorders.products
-        WHERE id IS NOT NULL AND price >= 0
-    )
-    WHERE row_num = 1
-""")
-
-print("✅ s_salesorders.products created")
-
-# COMMAND ----------
-
-display(spark.sql("SELECT * FROM s_salesorders.products LIMIT 5"))
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Orders — Explode Cart Items, Enrich with Products, Deduplicate
-
-# COMMAND ----------
-
-# Quarantine: carts with null IDs
-spark.sql("""
-    CREATE OR REPLACE TABLE s_salesorders.orders_quarantine AS
-    SELECT
-        id AS cart_id,
-        userId AS user_id,
+CREATE OR REPLACE TABLE s_antigravity_sales.products AS
+WITH ranked_products AS (
+    SELECT 
+        CAST(id AS INT) AS product_id,
+        TRIM(title) AS title,
+        CAST(price AS DOUBLE) AS price,
+        LOWER(TRIM(category)) AS category,
+        CAST(rating AS DOUBLE) AS rating_score,
+        brand,
+        description,
         _ingestion_timestamp,
-        'Missing cart ID' AS quarantine_reason
-    FROM b_salesorders.carts
-    WHERE id IS NULL
+        _source,
+        _batch_id,
+        ROW_NUMBER() OVER (PARTITION BY id ORDER BY _ingestion_timestamp DESC) AS row_num
+    FROM b_antigravity_sales.products
+    WHERE id IS NOT NULL AND price >= 0
+)
+SELECT 
+    product_id,
+    title,
+    price,
+    category,
+    rating_score,
+    brand,
+    description,
+    _ingestion_timestamp,
+    _source,
+    _batch_id
+FROM ranked_products
+WHERE row_num = 1
 """)
 
-print("✅ s_salesorders.orders_quarantine created")
+print("Cleaned products loaded to s_antigravity_sales.products")
 
 # COMMAND ----------
 
-# Explode cart items into individual order lines, then join with products
+# Cell 4: Cleanse Customers
+# Source: b_antigravity_sales.users
+# Target: s_antigravity_sales.customers
 spark.sql("""
-    CREATE OR REPLACE TABLE s_salesorders.orders AS
-    SELECT
-        cart_id,
-        user_id,
-        order_date,
-        product_id,
-        product_title,
-        category,
-        price,
-        quantity,
-        line_total
-    FROM (
-        SELECT
-            e.cart_id,
-            e.user_id,
-            e.order_date,
-            e.product_id,
-            e.product_title,
-            p.category,
-            COALESCE(p.price, e.item_price) AS price,
-            e.quantity,
-            ROUND(COALESCE(e.item_total, COALESCE(p.price, e.item_price) * e.quantity), 2) AS line_total,
-            e._ingestion_timestamp,
-            ROW_NUMBER() OVER (
-                PARTITION BY e.cart_id, e.product_id
-                ORDER BY e._ingestion_timestamp DESC
-            ) AS row_num
-        FROM (
-            SELECT
-                c.id AS cart_id,
-                c.userId AS user_id,
-                CURRENT_DATE() AS order_date,
-                item.id AS product_id,
-                item.title AS product_title,
-                item.price AS item_price,
-                item.quantity AS quantity,
-                item.total AS item_total,
-                c._ingestion_timestamp
-            FROM b_salesorders.carts c
-            LATERAL VIEW EXPLODE(c.products) AS item
-            WHERE c.id IS NOT NULL
-        ) e
-        LEFT JOIN s_salesorders.products p
-            ON e.product_id = p.product_id
-    )
-    WHERE row_num = 1
+CREATE OR REPLACE TABLE s_antigravity_sales.customers AS
+WITH ranked_customers AS (
+    SELECT 
+        CAST(id AS INT) AS customer_id,
+        LOWER(TRIM(email)) AS email,
+        LOWER(TRIM(username)) AS username,
+        firstName AS first_name,
+        lastName AS last_name,
+        address.city AS city,
+        address.address AS street,
+        address.postalCode AS zipcode,
+        _ingestion_timestamp,
+        _source,
+        _batch_id,
+        ROW_NUMBER() OVER (PARTITION BY id ORDER BY _ingestion_timestamp DESC) AS row_num
+    FROM b_antigravity_sales.users
+    WHERE id IS NOT NULL
+)
+SELECT 
+    customer_id,
+    email,
+    username,
+    first_name,
+    last_name,
+    city,
+    street,
+    zipcode,
+    _ingestion_timestamp,
+    _source,
+    _batch_id
+FROM ranked_customers
+WHERE row_num = 1
 """)
 
-print("✅ s_salesorders.orders created")
+print("Cleaned customers loaded to s_antigravity_sales.customers")
 
 # COMMAND ----------
 
-display(spark.sql("SELECT * FROM s_salesorders.orders LIMIT 10"))
+# Cell 5: Cleanse Orders & Quarantine
+# Source: b_antigravity_sales.carts
+# Target: s_antigravity_sales.orders and s_antigravity_sales.orders_quarantine
 
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Customers — Cleanse, Flatten Address, Deduplicate
-
-# COMMAND ----------
-
+# 1. Quarantine missing cart IDs
 spark.sql("""
-    CREATE OR REPLACE TABLE s_salesorders.customers AS
-    SELECT
-        customer_id,
-        first_name,
-        last_name,
-        email,
-        username,
-        street,
-        city,
-        zipcode,
-        _ingestion_timestamp
-    FROM (
-        SELECT
-            id AS customer_id,
-            firstName AS first_name,
-            lastName AS last_name,
-            LOWER(TRIM(email)) AS email,
-            LOWER(TRIM(username)) AS username,
-            address.address AS street,
-            address.city AS city,
-            address.postalCode AS zipcode,
-            _ingestion_timestamp,
-            ROW_NUMBER() OVER (PARTITION BY id ORDER BY _ingestion_timestamp DESC) AS row_num
-        FROM b_salesorders.users
-        WHERE id IS NOT NULL
-    )
-    WHERE row_num = 1
+CREATE OR REPLACE TABLE s_antigravity_sales.orders_quarantine AS
+SELECT 
+    id AS cart_id,
+    userId AS user_id,
+    _ingestion_timestamp,
+    _source,
+    _batch_id,
+    'Missing cart ID' AS quarantine_reason
+FROM b_antigravity_sales.carts
+WHERE id IS NULL
 """)
 
-print("✅ s_salesorders.customers created")
+# 2. Cleanse and Deduplicate valid orders
+# Wrap EXPLODE in a subquery first, then LEFT JOIN with s_antigravity_sales.products
+spark.sql("""
+CREATE OR REPLACE TABLE s_antigravity_sales.orders AS
+WITH exploded_orders AS (
+    SELECT 
+        CAST(id AS INT) AS cart_id,
+        CAST(userId AS INT) AS user_id,
+        _ingestion_timestamp,
+        _source,
+        _batch_id,
+        EXPLODE(products) AS item
+    FROM b_antigravity_sales.carts
+    WHERE id IS NOT NULL
+),
+enriched_orders AS (
+    SELECT 
+        o.cart_id,
+        o.user_id,
+        CURRENT_DATE() AS order_date,
+        CAST(o.item.id AS INT) AS product_id,
+        o.item.title AS product_title,
+        p.category AS category,
+        CAST(o.item.price AS DOUBLE) AS price,
+        CAST(o.item.quantity AS INT) AS quantity,
+        ROUND(COALESCE(o.item.total, o.item.price * o.item.quantity), 2) AS line_total,
+        o._ingestion_timestamp,
+        o._source,
+        o._batch_id
+    FROM exploded_orders o
+    LEFT JOIN s_antigravity_sales.products p ON o.item.id = p.product_id
+),
+deduped_orders AS (
+    SELECT 
+        *,
+        ROW_NUMBER() OVER (PARTITION BY cart_id, product_id ORDER BY _ingestion_timestamp DESC) AS row_num
+    FROM enriched_orders
+)
+SELECT 
+    cart_id,
+    user_id,
+    order_date,
+    product_id,
+    product_title,
+    category,
+    price,
+    quantity,
+    line_total,
+    _ingestion_timestamp,
+    _source,
+    _batch_id
+FROM deduped_orders
+WHERE row_num = 1
+""")
 
-# COMMAND ----------
-
-display(spark.sql("SELECT * FROM s_salesorders.customers LIMIT 5"))
-
-# COMMAND ----------
-
-print("🏁 Silver cleansing complete — all tables written to s_salesorders schema")
+print("Cleaned orders loaded to s_antigravity_sales.orders")

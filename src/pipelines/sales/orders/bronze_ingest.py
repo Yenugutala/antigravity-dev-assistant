@@ -3,14 +3,20 @@
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC # Bronze Layer: Sales Orders — Raw Data Ingestion
-# MAGIC Fetches products, carts, and users from DummyJSON API.
-# MAGIC Writes raw data as Delta tables to `b_salesorders` schema.
+# MAGIC # Bronze Layer: Sales Ingestion (Python)
+# MAGIC Ingests raw data from DummyJSON API into `b_antigravity_sales` Delta tables with explicit schemas and API fallback.
 
 # COMMAND ----------
 
+# Cell 1: Schema Creation
+spark.sql("CREATE SCHEMA IF NOT EXISTS b_antigravity_sales")
+
+# COMMAND ----------
+
+# Cell 2: Imports
 import requests
 import uuid
+import yaml
 from datetime import datetime
 from pyspark.sql.types import (
     StructType, StructField, IntegerType, StringType, DoubleType, ArrayType
@@ -18,24 +24,17 @@ from pyspark.sql.types import (
 
 # COMMAND ----------
 
-# Create bronze schema
-spark.sql("CREATE SCHEMA IF NOT EXISTS b_salesorders")
+# Cell 3: Configuration & Initialization
+with open("config.yml", "r") as f:
+    config = yaml.safe_load(f)
 
-# COMMAND ----------
-
-# Configuration
-API_BASE_URL = "https://dummyjson.com"
+API_BASE_URL = config.get("source_api", "https://dummyjson.com")
 BATCH_ID = str(uuid.uuid4())
 INGESTION_TS = datetime.utcnow().isoformat()
 
 # COMMAND ----------
 
-# MAGIC %md
-# MAGIC ## Products Ingestion
-
-# COMMAND ----------
-
-# --- Products Schema ---
+# Cell 4: Products Schema & Fallback
 products_schema = StructType([
     StructField("id", IntegerType(), False),
     StructField("title", StringType(), False),
@@ -49,7 +48,6 @@ products_schema = StructType([
     StructField("_batch_id", StringType(), False),
 ])
 
-# Fallback sample data
 FALLBACK_PRODUCTS = [
     {"id": 1, "title": "Essence Mascara Lash Princess", "price": 9.99, "category": "beauty", "rating": 4.94, "brand": "Essence", "description": "Popular mascara"},
     {"id": 2, "title": "Eyeshadow Palette with Mirror", "price": 19.99, "category": "beauty", "rating": 3.28, "brand": "Glamour Beauty", "description": "Eyeshadow palette"},
@@ -65,18 +63,17 @@ FALLBACK_PRODUCTS = [
 
 # COMMAND ----------
 
-# Fetch products from API with fallback
+# Cell 5: Products Ingestion Execution
 source_label = "dummyjson_api"
 try:
     resp = requests.get(f"{API_BASE_URL}/products?limit=50", timeout=10)
     resp.raise_for_status()
     raw_products = resp.json()["products"]
 except Exception as e:
-    print(f"API call failed ({e}), using fallback sample data")
+    print(f"API products fetch failed ({e}), switching to fallback sample data")
     raw_products = FALLBACK_PRODUCTS
     source_label = "fallback_sample"
 
-# Clean and normalize product records
 cleaned_products = []
 for p in raw_products:
     cleaned_products.append((
@@ -93,21 +90,12 @@ for p in raw_products:
     ))
 
 df_products = spark.createDataFrame(cleaned_products, schema=products_schema)
-df_products.write.format("delta").mode("overwrite").saveAsTable("b_salesorders.products")
-print(f"✅ b_salesorders.products: {df_products.count()} rows ingested")
+df_products.write.format("delta").mode("overwrite").saveAsTable("b_antigravity_sales.products")
+print(f"Ingested {df_products.count()} products into b_antigravity_sales.products")
 
 # COMMAND ----------
 
-display(spark.sql("SELECT * FROM b_salesorders.products LIMIT 5"))
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Carts Ingestion
-
-# COMMAND ----------
-
-# --- Carts Schema ---
+# Cell 6: Carts Schema & Fallback
 cart_item_schema = StructType([
     StructField("id", IntegerType(), False),
     StructField("title", StringType(), True),
@@ -128,7 +116,6 @@ carts_schema = StructType([
     StructField("_batch_id", StringType(), False),
 ])
 
-# Fallback sample data
 FALLBACK_CARTS = [
     {"id": 1, "userId": 1, "totalProducts": 3, "totalQuantity": 5, "total": 59.97,
      "products": [
@@ -150,18 +137,17 @@ FALLBACK_CARTS = [
 
 # COMMAND ----------
 
-# Fetch carts from API with fallback
+# Cell 7: Carts Ingestion Execution
 source_label = "dummyjson_api"
 try:
     resp = requests.get(f"{API_BASE_URL}/carts?limit=20", timeout=10)
     resp.raise_for_status()
     raw_carts = resp.json()["carts"]
 except Exception as e:
-    print(f"API call failed ({e}), using fallback sample data")
+    print(f"API carts fetch failed ({e}), switching to fallback sample data")
     raw_carts = FALLBACK_CARTS
     source_label = "fallback_sample"
 
-# Clean and normalize cart records
 cleaned_carts = []
 for c in raw_carts:
     items = []
@@ -174,8 +160,8 @@ for c in raw_carts:
             float(item.get("total", 0.0)),
         ))
     cleaned_carts.append((
-        int(c["id"]),
-        int(c["userId"]),
+        int(c["id"]) if c.get("id") is not None else None,
+        int(c["userId"]) if c.get("userId") is not None else None,
         int(c.get("totalProducts", 0)) if c.get("totalProducts") is not None else None,
         int(c.get("totalQuantity", 0)) if c.get("totalQuantity") is not None else None,
         float(c.get("total", 0.0)) if c.get("total") is not None else None,
@@ -186,22 +172,13 @@ for c in raw_carts:
     ))
 
 df_carts = spark.createDataFrame(cleaned_carts, schema=carts_schema)
-df_carts.write.format("delta").mode("overwrite").saveAsTable("b_salesorders.carts")
-print(f"✅ b_salesorders.carts: {df_carts.count()} rows ingested")
+df_carts.write.format("delta").mode("overwrite").saveAsTable("b_antigravity_sales.carts")
+print(f"Ingested {df_carts.count()} carts into b_antigravity_sales.carts")
 
 # COMMAND ----------
 
-display(spark.sql("SELECT * FROM b_salesorders.carts LIMIT 5"))
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Users Ingestion
-
-# COMMAND ----------
-
-# --- Users Schema ---
-address_schema = StructType([
+# Cell 8: Users Schema & Fallback
+user_address_schema = StructType([
     StructField("address", StringType(), True),
     StructField("city", StringType(), True),
     StructField("state", StringType(), True),
@@ -215,66 +192,61 @@ users_schema = StructType([
     StructField("email", StringType(), False),
     StructField("phone", StringType(), True),
     StructField("username", StringType(), False),
-    StructField("address", address_schema, True),
+    StructField("address", user_address_schema, True),
     StructField("_ingestion_timestamp", StringType(), False),
     StructField("_source", StringType(), False),
     StructField("_batch_id", StringType(), False),
 ])
 
-# Fallback sample data
 FALLBACK_USERS = [
-    {"id": 1, "firstName": "Emily", "lastName": "Johnson", "email": "emily.johnson@x.dummyjson.com", "phone": "+1 555-0101", "username": "emilys",
-     "address": {"address": "123 Main St", "city": "Phoenix", "state": "AZ", "postalCode": "85001"}},
-    {"id": 2, "firstName": "Michael", "lastName": "Williams", "email": "michael.williams@x.dummyjson.com", "phone": "+1 555-0102", "username": "michaelw",
-     "address": {"address": "456 Oak Ave", "city": "Houston", "state": "TX", "postalCode": "77001"}},
-    {"id": 3, "firstName": "Sophia", "lastName": "Brown", "email": "sophia.brown@x.dummyjson.com", "phone": "+1 555-0103", "username": "sophiab",
-     "address": {"address": "789 Pine Rd", "city": "Chicago", "state": "IL", "postalCode": "60601"}},
+    {"id": 1, "firstName": "John", "lastName": "Doe", "email": "john.doe@x.com", "phone": "123-456-7890", "username": "johndoe",
+     "address": {"address": "123 Main St", "city": "Springfield", "state": "IL", "postalCode": "62701"}},
+    {"id": 2, "firstName": "Jane", "lastName": "Smith", "email": "jane.smith@x.com", "phone": "987-654-3210", "username": "janesmith",
+     "address": {"address": "456 Oak Ave", "city": "Bloomington", "state": "IN", "postalCode": "47401"}},
+    {"id": 3, "firstName": "Bob", "lastName": "Johnson", "email": "bob.j@x.com", "phone": "555-555-5555", "username": "bobjohnson",
+     "address": {"address": "789 Pine Rd", "city": "Madison", "state": "WI", "postalCode": "53703"}},
 ]
 
 # COMMAND ----------
 
-# Fetch users from API with fallback
+# Cell 9: Users Ingestion Execution
 source_label = "dummyjson_api"
 try:
-    resp = requests.get(f"{API_BASE_URL}/users?limit=30&select=id,firstName,lastName,email,phone,username,address", timeout=10)
+    resp = requests.get(f"{API_BASE_URL}/users?limit=30", timeout=10)
     resp.raise_for_status()
     raw_users = resp.json()["users"]
 except Exception as e:
-    print(f"API call failed ({e}), using fallback sample data")
+    print(f"API users fetch failed ({e}), switching to fallback sample data")
     raw_users = FALLBACK_USERS
     source_label = "fallback_sample"
 
-# Clean and normalize user records
 cleaned_users = []
 for u in raw_users:
     addr = u.get("address", {})
-    address_tuple = (
-        str(addr.get("address", "")) if addr.get("address") is not None else None,
-        str(addr.get("city", "")) if addr.get("city") is not None else None,
-        str(addr.get("state", "")) if addr.get("state") is not None else None,
-        str(addr.get("postalCode", "")) if addr.get("postalCode") is not None else None,
-    ) if addr else None
+    addr_tuple = (
+        str(addr.get("address", "")),
+        str(addr.get("city", "")),
+        str(addr.get("state", "")),
+        str(addr.get("postalCode", "")),
+    )
     cleaned_users.append((
         int(u["id"]),
-        str(u.get("firstName", "")) if u.get("firstName") is not None else None,
-        str(u.get("lastName", "")) if u.get("lastName") is not None else None,
-        str(u["email"]),
-        str(u.get("phone", "")) if u.get("phone") is not None else None,
-        str(u["username"]),
-        address_tuple,
+        str(u.get("firstName", "")),
+        str(u.get("lastName", "")),
+        str(u.get("email", "")),
+        str(u.get("phone", "")),
+        str(u.get("username", "")),
+        addr_tuple,
         INGESTION_TS,
         source_label,
         BATCH_ID,
     ))
 
 df_users = spark.createDataFrame(cleaned_users, schema=users_schema)
-df_users.write.format("delta").mode("overwrite").saveAsTable("b_salesorders.users")
-print(f"✅ b_salesorders.users: {df_users.count()} rows ingested")
+df_users.write.format("delta").mode("overwrite").saveAsTable("b_antigravity_sales.users")
+print(f"Ingested {df_users.count()} users into b_antigravity_sales.users")
 
 # COMMAND ----------
 
-display(spark.sql("SELECT * FROM b_salesorders.users LIMIT 5"))
-
-# COMMAND ----------
-
-print("🏁 Bronze ingestion complete — all tables written to b_salesorders schema")
+# Cell 10: Final Display / Verification
+display(spark.sql("SELECT * FROM b_antigravity_sales.products LIMIT 5"))
