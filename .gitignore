@@ -41,3 +41,6 @@ local/
 
 # Demo files (local only, not published to repo)
 demo/
+
+# MCP configuration
+.mcp.json
