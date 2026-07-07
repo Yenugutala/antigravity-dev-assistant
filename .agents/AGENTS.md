@@ -82,3 +82,74 @@ These are the rules and guidelines that Antigravity must follow when working on 
   - Verify schema matches expected `StructType`.
   - Verify row counts and deduplication logic.
   - Verify metadata fields are populated.
+
+---
+
+## 5. Databricks Run-Time Gotchas & Resolutions (Known Issues)
+
+These rules are captured from verified Databricks execution failures and MUST be adhered to when generating or modifying pipeline code:
+
+### 5.1 Workspace File Path Resolution
+* **The Gotcha**: When a notebook is triggered remotely (e.g. via Jobs/Workflows), the current working directory defaults to `/databricks/driver/` (rather than the notebook's Repo folder). This breaks simple relative file operations like `open("config.yml")`.
+* **The Rule**: Always resolve the absolute path to workspace files like `config.yml` using a hybrid context check. Fall back to relative parent traversal ONLY when the Databricks context is missing (like during local `pytest` executions):
+  ```python
+  try:
+      notebook_path = dbutils.entrypoint.getDbutils().notebook().getContext().notebookPath().get()
+      if "/src/" in notebook_path:
+          repo_root = notebook_path.split("/src/")[0]
+      elif "/notebooks/" in notebook_path:
+          repo_root = notebook_path.split("/notebooks/")[0]
+      else:
+          repo_root = notebook_path
+      config_path = f"/Workspace{repo_root}/config.yml"
+  except Exception:
+      config_path = "config.yml"
+      for _ in range(5):
+          if os.path.exists(config_path):
+              break
+          config_path = os.path.join("..", config_path)
+  ```
+
+### 5.2 Zero-Dependency Configuration Parsing
+* **The Gotcha**: Serverless Compute and default Job Clusters do not have `pyyaml` (imported as `yaml`) pre-installed. Importing it throws `ModuleNotFoundError`. Using `%pip install` introduces startup latency and caching overhead.
+* **The Rule**: Do NOT import the `yaml` library inside pipeline notebooks. Instead, always parse `config.yml` using a custom, zero-dependency indentation-based line reader:
+  ```python
+  config = {}
+  current_path = []
+  with open(config_path, "r") as f:
+      for line in f:
+          stripped = line.lstrip()
+          if not stripped or stripped.startswith("#"):
+              continue
+          indent = len(line) - len(stripped)
+          level = indent // 2
+          current_path = current_path[:level]
+          
+          if ":" in stripped:
+              parts = stripped.split(":", 1)
+              key = parts[0].strip()
+              val = parts[1].split("#")[0].strip()
+              
+              if val.startswith('"') and val.endswith('"'):
+                  val = val[1:-1]
+              elif val.startswith("'") and val.endswith("'"):
+                  val = val[1:-1]
+                  
+              target = config
+              for p in current_path:
+                  target = target[p]
+                  
+              if not val:
+                  target[key] = {}
+                  current_path.append(key)
+              else:
+                  target[key] = val
+  ```
+
+### 5.3 Orchestrator Relative Pathing
+* **The Gotcha**: `dbutils.notebook.run()` resolves paths relative to the directory of the *running notebook*.
+* **The Rule**: In `notebooks/run_pipeline.py`, the `PIPELINE_PATH` must go up one folder level using `../` to target the `src/` folder correctly:
+  ```python
+  PIPELINE_PATH = "../src/pipelines/sales/orders"
+  ```
+

@@ -38,6 +38,8 @@ Create `docs/<domain>-<entity>-hld.md` with:
 Create `src/pipelines/<domain>/<entity>/bronze_ingest.py`
 - Follow Bronze Layer rules in `.agents/AGENTS.md`
 - Use schemas and endpoints defined in bronze-spec.md
+- **Databricks Path Resolution**: ALWAYS use the absolute workspace path resolver for `config.yml` with fallback for local unit tests (as detailed in `AGENTS.md` Section 5.1).
+- **Zero-Dependency Config**: NEVER import `yaml` or `pyyaml`. Parse `config.yml` using the zero-dependency indentation-based reader (detailed in `AGENTS.md` Section 5.2).
 - Fetch data from source API, add metadata columns, write as Delta tables
 - Display sample data at the end
 
@@ -45,18 +47,23 @@ Create `src/pipelines/<domain>/<entity>/bronze_ingest.py`
 Create `src/pipelines/<domain>/<entity>/silver_cleanse.py`
 - Follow Silver Layer rules in `.agents/AGENTS.md`
 - Apply cleansing and transformation rules from silver-spec.md
+- **Databricks Path Resolution**: ALWAYS use the absolute workspace path resolver for `config.yml` with fallback for local unit tests (as detailed in `AGENTS.md` Section 5.1).
+- **Zero-Dependency Config**: NEVER import `yaml` or `pyyaml`. Parse `config.yml` using the zero-dependency indentation-based reader (detailed in `AGENTS.md` Section 5.2).
 - Write cleansed data to `s_<pipeline>.<table>`
 
 ### Step 5: Generate Gold Pipeline Code (Spark SQL)
 Create `src/pipelines/<domain>/<entity>/gold_aggregate.py`
 - Follow Gold Layer rules in `.agents/AGENTS.md`
 - Create aggregation tables defined in gold-spec.md
+- **Databricks Path Resolution**: ALWAYS use the absolute workspace path resolver for `config.yml` with fallback for local unit tests (as detailed in `AGENTS.md` Section 5.1).
+- **Zero-Dependency Config**: NEVER import `yaml` or `pyyaml`. Parse `config.yml` using the zero-dependency indentation-based reader (detailed in `AGENTS.md` Section 5.2).
 - Read from silver tables, write to gold tables
 - Display final aggregated results at the end
 
 ### Step 6: Generate Master Notebook
 Create `notebooks/run_pipeline.py`
 - Follow Notebook rules in `.agents/AGENTS.md`
+- **Orchestrator Relative Pathing**: Set `PIPELINE_PATH` going up one level using `../src/pipelines/<domain>/<entity>` to resolve relative paths inside Databricks Jobs (detailed in `AGENTS.md` Section 5.3).
 - Run Bronze → Silver → Gold notebooks in sequence
 - Display summary with table names and row counts
 - Include timing for each stage
