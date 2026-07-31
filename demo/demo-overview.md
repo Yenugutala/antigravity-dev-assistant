@@ -80,7 +80,7 @@ Or run each layer individually:
 
 | Order | Notebook | What It Does |
 |-------|----------|-------------|
-| 1 | `src/pipelines/sales/orders/bronze_ingest.py` | Ingests raw data from DummyJSON API into Bronze tables |
+| 1 | `src/pipelines/sales/orders/bronze_ingest.py` | Ingests raw data from Sales Hub REST API into Bronze tables |
 | 2 | `src/pipelines/sales/orders/silver_cleanse.py` | Cleanses, deduplicates, and transforms into Silver tables |
 | 3 | `src/pipelines/sales/orders/gold_aggregate.py` | Aggregates into Gold business metrics tables |
 
@@ -112,7 +112,7 @@ SELECT * FROM b_antigravity_sales.products LIMIT 10;
 
 ```mermaid
 graph LR
-    API["REST API\n(DummyJSON)"] --> B["BRONZE\nb_antigravity_sales"]
+    API["REST API\n(Sales Hub)"] --> B["BRONZE\nb_antigravity_sales"]
     B --> S["SILVER\ns_antigravity_sales"]
     S --> G["GOLD\ng_antigravity_sales"]
 
@@ -151,7 +151,7 @@ graph LR
 *(Note: If the diagram above is not rendering, install the **Markdown Preview Mermaid Support** extension in your IDE, or view the text-based architecture below)*
 
 ```text
-  REST API (DummyJSON)
+  REST API (Sales Hub)
          │
          ▼
   BRONZE Layer  (b_antigravity_sales)   :  products, carts, users

@@ -13,7 +13,7 @@ These are the rules and guidelines that Antigravity must follow when working on 
 - **Secrets**: No secrets in code — use Databricks Secrets or environment variables.
 - **Metadata Columns**: Every ingestion layer table must automatically include metadata columns prefixed with `_`:
   - `_ingestion_timestamp` — ISO string of when data was ingested.
-  - `_source` — source identifier (e.g., "dummyjson_api" or "fallback_sample").
+  - `_source` — source identifier (e.g., "sales_hub_api" or "fallback_sample").
   - `_batch_id` — unique batch identifier (UUID).
 
 ---

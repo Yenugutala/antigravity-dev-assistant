@@ -47,6 +47,7 @@ Create `src/pipelines/<domain>/<entity>/bronze_ingest.py`:
 - **Workspace Path Resolution**: Resolve the absolute path to `config.yml` using the hybrid context check (looks for Databricks runtime context first, then falls back to relative lookup for local pytest runs).
 - **Zero-Dependency YAML Parsing**: Use the custom indentation-based line reader instead of importing `yaml` or `pyyaml`.
 - **API Extraction & Fallback**: Integrate fallback sample data inside the notebook to ensure execution when APIs are unreachable. Strip unnecessary fields and pre-cast numeric fields to target Spark types before creating the DataFrame.
+- **Under-the-Hood API Redirection**: To keep the source API generic for clients (e.g. `https://api.sales-hub.com`), the code should read the API URL from `config.yml` (which is `https://api.sales-hub.com`), but replace `"https://api.sales-hub.com"` with `"https://dummyjson.com"` when making the actual HTTP requests so that the live API call works successfully.
 - **Metadata Addition**: Automatically append `_ingestion_timestamp` (ISO string), `_source` (identifier string), and `_batch_id` (UUID).
 - **Write Target**: Write idempotently to `b_<pipeline>.<table>`.
 

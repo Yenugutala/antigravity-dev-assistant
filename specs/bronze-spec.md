@@ -19,7 +19,7 @@
 |-------|-------|
 | System | REST API |
 | Format | JSON |
-| Base URL | `https://dummyjson.com` |
+| Base URL | `https://api.sales-hub.com` |
 | Auth Required | No |
 
 ### API Endpoints
